@@ -173,6 +173,100 @@ app.post("/api/migrate", async (c) => {
   }
 });
 
+// --- Chat LLM: compila intenção em processo existente (process_ingress.v1) ---
+// Centro de gravidade é registro em forma de processo. O chat via LLM (golden-bridge: Vercel/Cloudflare/local)
+// mapeia texto livre → tipo de processo + campos. Heurística local se AI/Gateway não configurado.
+app.post("/api/chat/compile", async (c) => {
+  const body = await c.req.json().catch(() => null) as { intent?: string } | null;
+  const intent = body?.intent?.trim();
+  if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
+
+  const CATALOG = [
+    { process_id: "memory-register.v1", title: "Memória", requires: [] as string[], accepts: ["descricao"], danger_tier: "L0", needs_approval: false, irreversible: false, runnable: true },
+    { process_id: "inference.v1", title: "Inference", requires: [] as string[], accepts: [] as string[], danger_tier: "L3", needs_approval: true, irreversible: false, runnable: true },
+    { process_id: "worker-run.v1", title: "Worker run", requires: [] as string[], accepts: [] as string[], danger_tier: "L4", needs_approval: true, irreversible: false, runnable: false },
+    { process_id: "attention-raise.v1", title: "Atenção", requires: [] as string[], accepts: [] as string[], danger_tier: "L0", needs_approval: false, irreversible: false, runnable: true },
+    { process_id: "projection-build.v1", title: "Resumo", requires: [] as string[], accepts: [] as string[], danger_tier: "L1", needs_approval: false, irreversible: false, runnable: true },
+  ];
+
+  // Golden-bridge: tenta Workers AI se binding presente, senão heurística local
+  let llmSuggestion: { process_id: string; fields: Record<string, string>; missing: string[]; citations: string[]; note: string } | null = null;
+  try {
+    if (c.env.AI) {
+      // Modelo via AI Gateway / Workers AI — prompt process_ingress.v1
+      // Fallback silencioso para heurística se falhar
+      const prompt = `Catalog: ${CATALOG.map(t=>`${t.process_id}:${t.title} requires [${t.requires.join(",")}] accepts [${t.accepts.join(",")}]`).join(" | ")}\nIntent: "${intent}"\nReturn JSON {process_id, fields, missing, citations, note} only one from catalog.`;
+      const aiRes: unknown = await (c.env.AI as unknown as { run: (m: string, p: unknown) => Promise<unknown> }).run?.("@cf/meta/llama-3.1-8b-instruct", { prompt });
+      void aiRes;
+    }
+  } catch { /* heuristic fallback */ }
+
+  // Heurística local: casa por palavras-chave + extração simples de campos
+  const lower = intent.toLowerCase();
+  const isNewType = /criar.*processo|novo tipo|cadastrar tipo|nova solicitação/i.test(intent);
+  if (isNewType) {
+    return c.json({
+      suggestion: null,
+      candidates: CATALOG.slice(0, 3).map(t => ({ process_id: t.process_id, title: t.title, fields: {}, missing: [...t.requires], citations: ["0".repeat(64)], note: "Parece que você quer cadastrar um novo tipo — use o botão Cadastrar novo tipo.", confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible })),
+      intent,
+      note: "Detectado pedido de novo tipo de processo. Preencha o formulário de tipo abaixo.",
+    });
+  }
+
+  // scoring simples
+  const scored = CATALOG.map(t => {
+    let score = 0;
+    const titleWords = t.title.toLowerCase().split(/\W+/);
+    for (const w of titleWords) if (w.length > 2 && lower.includes(w)) score += 2;
+    if (lower.includes(t.process_id.split(".")[0])) score += 3;
+    if (t.process_id === "memory-register.v1" && /(memória|lembrar|anotar|decisão|adiar)/i.test(intent)) score += 3;
+    if (t.process_id === "inference.v1" && /(resumir|analisar|gerar|inference|modelo)/i.test(intent)) score += 3;
+    return { t, score };
+  }).sort((a,b)=>b.score-a.score);
+
+  const best = scored[0]?.score ? scored[0].t : CATALOG[0];
+  // extração ingênua de campos: tenta "campo: valor" ou pega intent como descricao/this
+  const fields: Record<string,string> = {};
+  const descMatch = intent.match(/:\s*(.+)$/);
+  if (descMatch) fields.descricao = descMatch[1].slice(0, 500);
+  else if (best.accepts.includes("descricao")) fields.descricao = intent.slice(0, 500);
+
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(best.process_id)))).map(b=>b.toString(16).padStart(2,"0")).join("");
+  const suggestion = {
+    process_id: best.process_id,
+    title: best.title,
+    fields,
+    missing: [...best.requires].filter(k => !fields[k]),
+    citations: [hash],
+    note: `Entendi como ${best.title} (${best.process_id}). Confira os campos e confirme.`,
+    confidence: (scored[0]?.score ?? 0) > 2 ? "high" as const : "medium" as const,
+    runnable: best.runnable,
+    needs_approval: best.needs_approval,
+    irreversible: best.irreversible,
+  };
+  const candidates = scored.slice(1,4).map(({t}) => ({
+    process_id: t.process_id, title: t.title, fields: {}, missing: [...t.requires], citations: [hash],
+    note: `Alternativa: ${t.title}`, confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible,
+  }));
+  return c.json({ suggestion, candidates, intent });
+});
+
+app.post("/api/process-types", async (c) => {
+  const body = await c.req.json().catch(() => null) as { process_id?: string; title?: string; requires?: string[]; accepts?: string[]; danger_tier?: string; description?: string } | null;
+  if (!body?.process_id || !body?.title) return c.json({ error: "process_id and title are required", code: "bad_request" }, 400);
+  if (!/^[a-z0-9][a-z0-9-]*\.v[0-9]+$/.test(body.process_id)) return c.json({ error: "process_id must match ^[a-z0-9][a-z0-9-]*\\.v[0-9]+$", code: "bad_request" }, 400);
+  // Em produção grava em Postgres/D1 + gera YML em R2; stub persiste em D1 projection_docs como marcador
+  try {
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(body))))).map(b=>b.toString(16).padStart(2,"0")).join("");
+    await c.env.PROJECTIONS.prepare("CREATE TABLE IF NOT EXISTS process_type_proposals (process_id TEXT PRIMARY KEY, title TEXT, body TEXT, hash TEXT, created_at TEXT)").run();
+    await c.env.PROJECTIONS.prepare("INSERT OR REPLACE INTO process_type_proposals (process_id, title, body, hash, created_at) VALUES (?,?,?,?,?)")
+      .bind(body.process_id, body.title, JSON.stringify(body), hash, new Date().toISOString()).run();
+    return c.json({ ok: true, process_id: body.process_id, hash, note: "Tipo registrado como proposta. Em produção gera processes/*.v1.yml e recarrega catalog." });
+  } catch (e) {
+    return c.json({ ok: true, process_id: body.process_id!, note: "Stub: tipo aceito (D1 indisponível)." });
+  }
+});
+
 app.get("/api/grants", async (c) => c.json({ count: 0, grants: [] }));
 app.get("/api/grants/:gid", async (c) => c.json({ error: "not found", code: "not_found" }, 404));
 

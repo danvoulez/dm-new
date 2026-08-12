@@ -72,6 +72,35 @@ export type CaseView = {
 export type CandidatesView = { count: number; candidates: Array<{ id: string; fingerprint: string | null; did: string; when: string; payload: unknown; citations: unknown[] }> };
 export type ProjectionsView = { count: number; note: string; projections: Array<{ projection_hash: string; fingerprint: string | null; spec: string; class: string; computed_at: string }> };
 
+export type ChatSuggestion = {
+  process_id: string;
+  title: string;
+  fields: Record<string, string>;
+  missing: string[];
+  citations: string[];
+  note?: string;
+  confidence: "high" | "medium" | "low";
+  runnable: boolean;
+  needs_approval: boolean;
+  irreversible: boolean;
+};
+
+export type ChatCompileResult = {
+  suggestion: ChatSuggestion | null;
+  candidates: ChatSuggestion[];
+  intent: string;
+  note?: string;
+};
+
+export type ProcessTypeCreate = {
+  process_id: string;
+  title: string;
+  requires: string[];
+  accepts: string[];
+  danger_tier: string;
+  description?: string;
+};
+
 export const dmApi = {
   health: () => req<{ ok: boolean; ledger: string; acts: number }>("/api/health"),
   now: () => req<NowView>("/api/now"),
@@ -82,5 +111,7 @@ export const dmApi = {
   candidates: () => req<CandidatesView>("/api/candidates"),
   projections: () => req<{ count: number; note: string; projections: ProjectionsView["projections"] }>("/api/projections"),
   grants: () => req<{ count: number; grants: unknown[] }>("/api/grants"),
-  register: (body: Record<string, unknown>) => req<{ receipt: unknown; verdict: unknown; id: string; fingerprint: string | null }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
+  register: (body: Record<string, unknown>) => req<{ receipt: unknown; verdict: unknown; id: string; fingerprint: string | null; activated?: boolean; waiting?: { message?: string; action?: string } }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
+  chatCompile: (intent: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent }) }),
+  createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
 };

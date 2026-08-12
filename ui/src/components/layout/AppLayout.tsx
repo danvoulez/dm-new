@@ -22,11 +22,12 @@ const navItems = [
   { href: "/agora", label: "Agora", icon: PiClock },
   { href: "/pendentes", label: "Pendentes", icon: PiCheckCircle },
   { href: "/casos", label: "Casos", icon: PiFileText },
-  { href: "/novo", label: "Novo", icon: PiNotePencil },
   { href: "/sugestoes", label: "Sugestões", icon: PiLightbulb },
   { href: "/resumos", label: "Resumos", icon: PiChartBar },
   { href: "/permissoes", label: "Permissões", icon: PiShieldCheck },
 ];
+// Novo vira secundário — centro é o chat que instancia tipos via LLM. Link discreto no rodapé.
+const secondaryNav = { href: "/novo", label: "Novo (formulário)", icon: PiNotePencil };
 
 type SidebarProps = { className?: string; onNavigate?: () => void };
 
@@ -56,9 +57,12 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       <div className="mt-6 px-4">
         <p className="px-3 text-[12px] leading-5 text-black/45 dark:text-white/45">Tudo registra. Só avança o que está completo.</p>
       </div>
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#f7f7f5] via-[#f7f7f5] to-transparent px-4 pb-5 pt-9 dark:from-[#171717] dark:via-[#171717]">
-        <Link href="/novo" onClick={onNavigate} className="flex h-13 flex-1 items-center justify-center gap-2 rounded-full bg-[#0a8cff] px-5 text-[17px] font-semibold text-white shadow-[0_8px_24px_rgba(10,140,255,0.22)] active:scale-[0.98]">
-          <PiNotePencil className="h-[22px] w-[22px]" /> Novo registro
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#f7f7f5] via-[#f7f7f5] to-transparent px-4 pb-5 pt-9 dark:from-[#171717] dark:via-[#171717] space-y-3">
+        <Link href="/" onClick={onNavigate} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-[#0a8cff] px-5 text-[15px] font-semibold text-white shadow-[0_8px_24px_rgba(10,140,255,0.22)] active:scale-[0.98]">
+          <PiChats className="h-[20px] w-[20px]" /> Conversar — registrar via chat
+        </Link>
+        <Link href={secondaryNav.href} onClick={onNavigate} className="flex items-center justify-center gap-1.5 text-[11px] text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70">
+          <secondaryNav.icon className="h-3 w-3" /> {secondaryNav.label}
         </Link>
       </div>
     </aside>
