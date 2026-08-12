@@ -60,12 +60,12 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           echo "Applying 0001_logline_acts.sql"
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f migrations/0001_logline_acts.sql
+          psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0001_logline_acts.sql
           echo "Applying 0002_realtime_publication.sql"
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f migrations/0002_realtime_publication.sql
+          psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0002_realtime_publication.sql
           echo "Applying 0003_rls_and_search_path.sql"
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f migrations/0003_rls_and_search_path.sql
-          psql "$SUPABASE_DB_URL" -c "select relname, relrowsecurity from pg_class where relname='logline_acts';"
+          psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0003_rls_and_search_path.sql
+          psql "${SUPABASE_DB_URL}" -c "select relname, relrowsecurity from pg_class where relname='logline_acts';"
       - name: Skip migrate (no SUPABASE_DB_URL secret)
         if: env.SUPABASE_DB_URL == ''
         run: echo "No SUPABASE_DB_URL secret — skipping migrate (bench-only)."
