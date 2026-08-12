@@ -11,7 +11,7 @@
     {
       "binding": "HYPERDRIVE",
       "id": "2d9e87a1efc447a58622c42074bac2c0",
-      "localConnectionString": "postgresql://postgres:REDACTED@db.loervapotjchdkapkmup.supabase.co:5432/postgres?sslmode=require"
+      "localConnectionString": "postgresql://postgres:${SUPABASE_DB_PASSWORD}@db.loervapotjchdkapkmup.supabase.co:5432/postgres?sslmode=require" // set SUPABASE_DB_PASSWORD in .env or wrangler secret — never commit
     }
   ],
   // D1 only for rebuildable projections (not ledger) — safe to lose and rebuild.
