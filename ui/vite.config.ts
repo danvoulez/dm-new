@@ -32,7 +32,7 @@ export default defineConfig({
     port,
     strictPort: true,
     host: '0.0.0.0',
-    allowedHosts: ['terminal.local', 'localhost', '127.0.0.1'],
+    allowedHosts: true,
     fs: {
       strict: true,
     },
