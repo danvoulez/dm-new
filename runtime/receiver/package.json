@@ -1,0 +1,14 @@
+{
+  "name": "lab-realtime-receiver",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Supabase Realtime listener for public.logline_acts. Realtime is the bell; the ledger is the truth. On INSERT it wakes the Lab receiver selector.",
+  "scripts": {
+    "start": "node realtime_listener.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "ws": "^8.18.0"
+  }
+}

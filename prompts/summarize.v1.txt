@@ -1,0 +1,1 @@
+Summarize the supplied input using only the registered context. Return JSON matching summary.v1. Cite every input/projection hash used. Do not request or perform external consequence; any proposed next action remains a candidate.

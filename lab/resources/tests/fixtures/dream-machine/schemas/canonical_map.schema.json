@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dream Machine Canonical Map",
+  "type": "object",
+  "required": ["topic", "generated_at", "canonicality", "evidence", "contradictions", "unknowns", "recommended_action"],
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^(source|artifact|extraction|chunk|claim|map|act):"}
+  },
+  "properties": {
+    "map_id": {"type": "string", "pattern": "^map:"},
+    "topic": {"type": "string"},
+    "generated_at": {"type": "string"},
+    "config_hash": {"type": "string"},
+    "canonicality": {
+      "type": "object",
+      "required": ["status", "confidence", "primary_sources"],
+      "properties": {
+        "status": {"type": "string", "enum": ["canonical", "likely_canonical", "contested", "unknown", "superseded"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "primary_sources": {"type": "array", "items": {"$ref": "#/$defs/ref"}}
+      },
+      "allOf": [
+        {
+          "comment": "INV-5: status 'canonical' (not 'likely_canonical') requires an admitted Act among primary_sources.",
+          "if": {"properties": {"status": {"const": "canonical"}}},
+          "then": {"properties": {"primary_sources": {"contains": {"type": "string", "pattern": "^act:"}}}}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ref", "summary"],
+        "properties": {"ref": {"$ref": "#/$defs/ref"}, "summary": {"type": "string"}},
+        "additionalProperties": false
+      }
+    },
+    "contradictions": {"type": "array", "items": {"type": "string"}},
+    "unknowns": {"type": "array", "items": {"type": "string"}},
+    "recommended_action": {"type": "string"},
+    "candidate_act_kind": {"type": "string"}
+  },
+  "additionalProperties": false
+}

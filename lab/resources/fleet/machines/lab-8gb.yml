@@ -1,0 +1,12 @@
+machine_id: lab-8gb
+hostname: lab-8gb.local
+role: capital
+operator_account: lab
+lab_root: /Lab
+deployed_cli_path: /Lab/bin/lab
+allowed_services: [receiver-selector, clock-selector, queue-projection, executor-dispatcher]
+allowed_adapters: [receipt, projection, inference]
+forbidden_adapters: [worker_run, workflow_run]
+physical_dependencies: [power-cable:evidence, ethernet:evidence]
+last_seen: 2026-06-22T00:00:00Z
+evidence_hashes: [cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]

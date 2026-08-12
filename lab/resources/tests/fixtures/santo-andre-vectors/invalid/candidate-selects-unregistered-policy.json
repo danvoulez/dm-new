@@ -1,0 +1,37 @@
+{
+  "vector": "candidate-selects-unregistered-policy",
+  "expect": "invalid",
+  "tests": [
+    "law 14"
+  ],
+  "reason": "A candidate may PROPOSE a policy, but the gate refuses a policy hash that resolves to no registered policy. A proposed judge that does not exist is illegal, not merely doubtful.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "requested",
+    "this": "valid except it proposes an unregistered policy hash",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "7777777777777777777777777777777777777777777777777777777777777777",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  },
+  "references": {
+    "policy_resolves": false
+  }
+}

@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dream-machine-lab"
+version = "0.2.0"
+description = "A processual, ledger-backed runtime: register everything, activate only complete process-contract matches, and let consequence flow through a governed selector/executor tree."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "The Dream Machine Lab authors" }]
+keywords = [
+    "ledger",
+    "append-only",
+    "content-addressed",
+    "rfc8785",
+    "json-canonicalization",
+    "webauthn",
+    "passkey",
+    "audit",
+    "provenance",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Logging",
+    "Typing :: Typed",
+]
+
+# The kernel is zero-dependency on purpose. The cryptographic signature-binding layer
+# (passkey/WebAuthn over content_hash) is the ONE place that needs asymmetric crypto,
+# so it is an OPTIONAL boundary, never a kernel dependency. Install with:
+#   pip install dream-machine-lab[webauthn]
+# Verification lives in lab/signing/ and is loaded lazily; the core never imports it.
+dependencies = []
+
+[project.optional-dependencies]
+webauthn = ["webauthn>=2,<3"]
+
+[project.urls]
+Homepage = "https://github.com/danvoulez/dream-machine"
+Repository = "https://github.com/danvoulez/dream-machine"
+Issues = "https://github.com/danvoulez/dream-machine/issues"
+Changelog = "https://github.com/danvoulez/dream-machine/blob/main/CHANGELOG.md"
+
+[project.scripts]
+lab = "lab.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lab*"]
+
+[tool.setuptools.package-data]
+lab = ["resources/**/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# Vendored third-party code is kept verbatim — do not lint or reformat it.
+exclude = ["lab/_vendor/**"]

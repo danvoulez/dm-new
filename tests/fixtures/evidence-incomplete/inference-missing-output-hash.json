@@ -1,0 +1,5 @@
+{
+  "adapter_class": "inference.dry_run",
+  "external_effect": false,
+  "schema_hash": "df0ad6e43880f09c90ebf95f19110178aba6890df0010ebda7485029e2b543b4"
+}

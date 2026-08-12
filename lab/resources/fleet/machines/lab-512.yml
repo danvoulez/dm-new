@@ -1,0 +1,12 @@
+machine_id: lab-512
+hostname: lab-512.local
+role: engine
+operator_account: lab
+lab_root: /Lab
+deployed_cli_path: /Lab/bin/lab
+allowed_services: [projection-rebuilder, approved-maintenance]
+allowed_adapters: [receipt, projection, inference]
+forbidden_adapters: [worker_run, workflow_run]
+physical_dependencies: [power-cable:evidence, thermal-headroom:evidence]
+last_seen: 2026-06-22T00:00:00Z
+evidence_hashes: [bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb]

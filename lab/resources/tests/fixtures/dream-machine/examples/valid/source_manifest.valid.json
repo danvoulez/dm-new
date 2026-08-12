@@ -1,0 +1,11 @@
+{
+  "source_id": "source:554d3b8a61c0f4d2e7b3a19f2c1ab07e",
+  "kind": "repo",
+  "uri": "file:///Users/dan/actgraph",
+  "root_path": "/Users/dan/actgraph",
+  "discovered_at": "2026-06-13T10:30:00Z",
+  "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "custody_status": "material",
+  "semantic_status": "not_truth",
+  "metadata": {"branch": "main", "head_commit": "abc1234"}
+}

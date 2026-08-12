@@ -1,0 +1,16 @@
+Dream Machine Lab
+Copyright 2026 The Dream Machine Lab authors
+
+This product includes software developed by the Dream Machine Lab authors,
+licensed under the Apache License, Version 2.0 (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+lab/_vendor/rfc8785/
+    JSON Canonicalization Scheme (RFC 8785) reference implementation.
+    Copyright Trail of Bits, Inc.
+    Licensed under the Apache License, Version 2.0 (see lab/_vendor/rfc8785/LICENSE).
+    Source: https://github.com/trailofbits/rfc8785.py  (version 0.1.4, vendored verbatim)
+    Provenance and update procedure: lab/_vendor/README.md

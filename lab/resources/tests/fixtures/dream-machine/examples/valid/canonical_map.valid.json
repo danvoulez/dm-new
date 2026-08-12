@@ -1,0 +1,19 @@
+{
+  "map_id": "map:3a1c0f4d2e7b9f2c1ab07e554d3b8a61",
+  "topic": "ActGraph admission gate",
+  "generated_at": "2026-06-13T11:00:00Z",
+  "config_hash": "7e554d3b8a61c0f4d2e7b3a19f2c1ab0",
+  "canonicality": {
+    "status": "likely_canonical",
+    "confidence": 0.78,
+    "primary_sources": ["artifact:1ab07e554d3b8a61c0f4d2e7b3a19f2c"]
+  },
+  "evidence": [
+    {"ref": "chunk:1c0f4d2e7b3a19f2c1ab07e554d3b8a6", "summary": "Formal foundations define a single admit path."},
+    {"ref": "chunk:2e7b3a19f2c1ab07e554d3b8a61c0f4d", "summary": "Litmus: consequence must become an Act."}
+  ],
+  "contradictions": [],
+  "unknowns": ["No admitted Act pointer checked in current ledger."],
+  "recommended_action": "Query admitted Acts for the gate constitution pointer before upgrading to canonical.",
+  "candidate_act_kind": "registered_canonical_map"
+}
