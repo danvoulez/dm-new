@@ -31,3 +31,4 @@ ui/dist/
 *.swp
 .idea/
 .vscode/
+.wrangler/

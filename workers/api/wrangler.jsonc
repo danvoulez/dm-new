@@ -31,6 +31,8 @@
   "ai": { "binding": "AI" },
   "vars": {
     "LAB_MODE": "production",
+    "GOLDEN_BRIDGE_URL": "https://inference.minilab.work",
+    "GOLDEN_BRIDGE_TUNNEL_ID": "2b7bc384-08ec-4fda-9c54-cd509ac3c578",
     "R2_PUBLIC_BASE": ""
   }
 }

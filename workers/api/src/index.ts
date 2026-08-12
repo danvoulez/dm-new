@@ -8,9 +8,42 @@ type Env = {
   OBJECTS: R2Bucket;
   AI: Ai;
   LAB_MODE: string;
-  // único provedor: golden-bridge (lab 512) — junta Vercel/CF/local internamente, fetch tudo da API
+  // único provedor: golden-bridge no LAB 8GB (~/lab-mistral-rs-gateway, porta 8787),
+  // que roteia pelo cabo /30 até mistral.rs no LAB 512 (10.88.0.10:1234) e unifica
+  // os gateways externos. Exposto pelo túnel canônico da 8GB em inference.minilab.work,
+  // atrás de Cloudflare Access — daí o service token. Nenhuma chave de LLM vive aqui.
   GOLDEN_BRIDGE_URL?: string;
+  GOLDEN_BRIDGE_ACCESS_ID?: string;
+  GOLDEN_BRIDGE_ACCESS_SECRET?: string;
+  GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
+
+const BRIDGE_DEFAULT = "https://inference.minilab.work";
+
+// Um fetch de Worker para um hostname da própria conta não sai pelo edge, então não
+// encontra a rota do túnel — cai num origin legado (hoje um projeto morto na Vercel).
+// O caminho suportado de Worker para Cloudflare Tunnel é <tunnel-uuid>.cfargotunnel.com
+// com o Host original, que o cloudflared usa para casar o ingress. Se o túnel não estiver
+// configurado, tenta o hostname público com o service token de Access.
+async function bridgeFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
+  const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
+  const host = new URL(publicBase).host;
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...(init.headers as Record<string, string> | undefined) };
+
+  if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
+    const r = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
+      ...init,
+      headers: { ...headers, Host: host },
+    });
+    if (r.ok) return r;
+  }
+
+  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
+    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
+    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
+  }
+  return fetch(`${publicBase}${path}`, { ...init, headers });
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -63,9 +96,8 @@ app.get("/api/vocabulary", (c) => {
 
 // Modelos expostos via API — só golden-bridge, fetch tudo da API, zero hardcode, zero chave
 app.get("/api/models", async (c) => {
-  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.carbonlab.work").replace(/\/+$/, "");
   try {
-    const r = await fetch(`${base}/v1/models`);
+    const r = await bridgeFetch(c.env, "/v1/models");
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
     const j = await r.json() as { data?: unknown[]; object?: string };
     // golden-bridge já retorna {object:"list", data:[{id,provider,owned_by}]}
@@ -203,20 +235,70 @@ app.post("/api/chat/compile", async (c) => {
   const requestedModel = body?.model?.trim();
   if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
 
-  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.carbonlab.work").replace(/\/+$/, "");
-  // Delega tudo ao golden-bridge (lab 512): ele junta Vercel/CF/local internamente
+  // O bridge é OpenAI-compat (/v1/chat/completions). Ele escolhe local (512) ou gateway
+  // externo pelo model id; aqui só mandamos o contrato process_ingress.v1 e validamos a volta.
+  const types = await (await app.request("/api/process-types", {}, c.env as unknown as Record<string, string>)).json() as {
+    types: Array<{ process_id: string; title: string; requires: string[]; accepts: string[]; danger_tier: string; needs_approval: boolean; irreversible: boolean; runnable: boolean }>;
+  };
+  const catalog = types.types;
+  const catalogText = catalog.map(t => `${t.process_id} | ${t.title} | requires=[${t.requires.join(",")}] | accepts=[${t.accepts.join(",")}] | danger=${t.danger_tier}`).join("\n");
+  const prompt = `Compile the intent into exactly one registered process type.
+
+CATALOG (choose process_id only from here):
+${catalogText}
+
+INTENT: ${intent}
+
+Answer with JSON only, no prose, no markdown fence:
+{"process_id":"<from catalog>","fields":{"<declared key>":"<value>"},"missing":["<required key absent from intent>"],"note":"<one short sentence in Portuguese>"}
+Rules: fields keys must come only from that type's requires/accepts. Never invent who, when or confirmed_by. If the intent does not match any type, use "process_id":"" and explain in note.`;
+
   try {
-    const r = await fetch(`${base}/v1/chat/compile`, {
+    const r = await bridgeFetch(c.env, "/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ intent, model: requestedModel }),
+      body: JSON.stringify({
+        model: requestedModel || "mistral-nemo-q4",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0,
+        max_tokens: 400,
+      }),
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => "");
       return c.json({ error: `golden-bridge error: ${r.status} ${txt.slice(0, 400)}`, code: "golden-bridge-error" }, 502);
     }
-    const j = await r.json() as { suggestion?: unknown; candidates?: unknown[]; intent?: string; error?: string };
-    return c.json(j);
+    const completion = await r.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = completion.choices?.[0]?.message?.content ?? "";
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return c.json({ error: "modelo não devolveu JSON", code: "llm-invalid", raw: text.slice(0, 400) }, 502);
+    const parsed = JSON.parse(m[0]) as { process_id?: string; fields?: Record<string, string>; missing?: string[]; note?: string };
+    const entry = catalog.find(t => t.process_id === parsed.process_id);
+    if (!entry) {
+      return c.json({ suggestion: null, candidates: [], intent, note: parsed.note ?? "Nenhum tipo do catálogo serve — cadastre um tipo novo." });
+    }
+    const allowed = new Set([...entry.requires, ...entry.accepts]);
+    const fields: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed.fields ?? {})) if (allowed.has(k)) fields[k] = String(v).slice(0, 500);
+    const missing = entry.requires.filter(k => !fields[k]);
+    return c.json({
+      intent,
+      suggestion: {
+        process_id: entry.process_id,
+        title: entry.title,
+        fields,
+        missing,
+        citations: [],
+        note: parsed.note,
+        confidence: missing.length ? "medium" : "high",
+        runnable: entry.runnable,
+        needs_approval: entry.needs_approval,
+        irreversible: entry.irreversible,
+      },
+      candidates: catalog.filter(t => t.process_id !== entry.process_id).map(t => ({
+        process_id: t.process_id, title: t.title, fields: {}, missing: t.requires, citations: [],
+        confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible,
+      })),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return c.json({ error: `golden-bridge unavailable: ${msg.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
