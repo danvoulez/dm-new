@@ -221,42 +221,6 @@ app.post("/api/chat/compile", async (c) => {
     const msg = e instanceof Error ? e.message : String(e);
     return c.json({ error: `golden-bridge unavailable: ${msg.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
   }
-
-    // Extrai JSON do texto (modelo pode envolver em markdown)
-    const m = text.match(/\{[\s\S]*\}/);
-    const parsed = m ? JSON.parse(m[0]) as { process_id?: string; fields?: Record<string,string>; missing?: string[]; citations?: string[]; note?: string } : null;
-    if (!parsed?.process_id || !parsed?.fields || !parsed?.citations) {
-      return c.json({ error: "LLM returned invalid process_ingress.v1 — missing required keys", code: "llm-invalid", raw: text.slice(0, 800) }, 502);
-    }
-    const entry = CATALOG.find(t => t.process_id === parsed.process_id);
-    if (!entry) return c.json({ error: `LLM chose unknown process_id ${parsed.process_id}`, code: "llm-invalid", raw: text.slice(0, 800) }, 502);
-    // Valida citations 64 hex
-    const badCite = (parsed.citations ?? []).find(h => !/^[0-9a-f]{64}$/.test(h));
-    if (badCite) return c.json({ error: `LLM citation invalid: ${badCite}`, code: "llm-invalid", raw: text.slice(0, 800) }, 502);
-    // Filtra fields para só chaves declaradas
-    const allowed = new Set([...entry.requires, ...entry.accepts]);
-    const filteredFields: Record<string,string> = {};
-    for (const [k,v] of Object.entries(parsed.fields ?? {})) if (allowed.has(k)) filteredFields[k]=String(v).slice(0,500);
-
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(entry.process_id)))).map(b=>b.toString(16).padStart(2,"0")).join("");
-    const citations = parsed.citations!.length ? parsed.citations! : [hash];
-    const suggestion = {
-      process_id: entry.process_id,
-      title: entry.title,
-      fields: filteredFields,
-      missing: [...entry.requires].filter(k => !filteredFields[k]),
-      citations,
-      note: parsed.note ?? `Entendi como ${entry.title} (${entry.process_id}).`,
-      confidence: "high" as const,
-      runnable: entry.runnable,
-      needs_approval: entry.needs_approval,
-      irreversible: entry.irreversible,
-    };
-    return c.json({ suggestion, candidates: [], intent });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: `LLM call failed: ${msg.slice(0, 400)}`, code: "llm-error" }, 502);
-  }
 });
 
 app.post("/api/process-types", async (c) => {
