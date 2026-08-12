@@ -8,13 +8,8 @@ type Env = {
   OBJECTS: R2Bucket;
   AI: Ai;
   LAB_MODE: string;
-  // golden-bridge: unifica Vercel AI Gateway, Cloudflare Workers AI e LLM local
-  AI_GATEWAY_URL?: string;
-  AI_GATEWAY_TOKEN?: string;
-  VERCEL_AI_GATEWAY_URL?: string;
-  VERCEL_AI_GATEWAY_TOKEN?: string;
-  LOCAL_LLM_URL?: string;
-  LOCAL_LLM_TOKEN?: string;
+  // único provedor: golden-bridge (lab 512) — junta Vercel/CF/local internamente, fetch tudo da API
+  GOLDEN_BRIDGE_URL?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -66,61 +61,19 @@ app.get("/api/vocabulary", (c) => {
   return c.json({ count: reasons.length, reasons });
 });
 
-// Modelos expostos via API — sofisticado, agrega Vercel/CF/local com catálogos completos
-const LOCAL_CATALOG = [
-  "mistral-nemo-12b", "mistral-nemo-12b:q4", "qwen3-4b", "qwen3-4b:q4", "llama-3.2-3b", "llama-3.2-3b:q4",
-  "lfm2-1.2b", "lfm2-5-1.2b", "gemma-2-2b", "phi-3-mini",
-];
-const CF_CATALOG = [
-  "@cf/meta/llama-3.1-8b-instruct", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-70b-instruct", "@cf/mistral/mistral-7b-instruct-v0.1",
-  "@cf/google/gemma-7b-it", "@cf/qwen/qwen1.5-14b-chat-awq", "@cf/openchat/openchat-3.5-0106", "@cf/tii/falcon-7b-instruct",
-  "@cf/nous-hermes-2-yi-34b", "@cf/thebloke/discolm-german-7b-v1-awq",
-];
-const VERCEL_CATALOG = [
-  "openai/gpt-4o-mini", "openai/gpt-4o", "openai/gpt-4-turbo", "anthropic/claude-3.5-sonnet", "anthropic/claude-3-haiku",
-  "google/gemini-1.5-pro", "google/gemini-1.5-flash", "mistral/mistral-large", "cohere/command-r-plus",
-];
-
+// Modelos expostos via API — só golden-bridge, fetch tudo da API, zero hardcode, zero chave
 app.get("/api/models", async (c) => {
-  const models: Array<{ id: string; provider: string; object: string; owned_by: string }> = [];
-  const seen = new Set<string>();
-  const push = (id: string, provider: string, owned_by: string) => { if (!seen.has(id)) { seen.add(id); models.push({ id, provider, object: "model", owned_by }); } };
-
-  // Local mistral.rs (lab 512) — tenta vivo primeiro, senão catálogo estático completo
-  let localAlive = false;
-  const localUrl = c.env.LOCAL_LLM_URL?.replace(/\/+$/, "");
-  if (localUrl) {
-    try {
-      const r = await fetch(`${localUrl}/v1/models`, { headers: c.env.LOCAL_LLM_TOKEN ? { Authorization: `Bearer ${c.env.LOCAL_LLM_TOKEN}` } : {} });
-      if (r.ok) {
-        const j = await r.json() as { data?: Array<{ id: string }> };
-        for (const m of j.data ?? []) push(m.id, "local", "lab-512");
-        localAlive = (j.data?.length ?? 0) > 0;
-      }
-    } catch {}
+  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.minilab.work").replace(/\/+$/, "");
+  try {
+    const r = await fetch(`${base}/v1/models`);
+    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+    const j = await r.json() as { data?: unknown[]; object?: string };
+    // golden-bridge já retorna {object:"list", data:[{id,provider,owned_by}]}
+    return c.json(j);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return c.json({ object: "list", data: [], error: `golden-bridge unavailable: ${msg.slice(0, 200)}` }, 502);
   }
-  if (!localAlive) for (const id of LOCAL_CATALOG) push(id, "local", "lab-512");
-
-  // Cloudflare Workers AI — via AI binding, Gateway expõe caps mas lista é conhecida
-  for (const id of CF_CATALOG) push(id, "cloudflare", "cloudflare");
-
-  // Vercel AI Gateway — tenta dinâmico, senão catálogo completo
-  let vercelAlive = false;
-  const vUrl = (c.env.VERCEL_AI_GATEWAY_URL ?? c.env.AI_GATEWAY_URL)?.replace(/\/+$/, "");
-  const vTok = c.env.VERCEL_AI_GATEWAY_TOKEN ?? c.env.AI_GATEWAY_TOKEN;
-  if (vUrl && vTok) {
-    try {
-      const r = await fetch(`${vUrl}/v1/models`, { headers: { Authorization: `Bearer ${vTok}` } });
-      if (r.ok) {
-        const j = await r.json() as { data?: Array<{ id: string }> };
-        for (const m of j.data ?? []) push(m.id, "vercel", "vercel");
-        vercelAlive = (j.data?.length ?? 0) > 0;
-      }
-    } catch {}
-  }
-  if (!vercelAlive) for (const id of VERCEL_CATALOG) push(id, "vercel", "vercel");
-
-  return c.json({ object: "list", data: models });
 });
 app.get("/v1/models", async (c) => {
   // alias OpenAI-compat para UI direta
@@ -243,86 +196,31 @@ app.post("/api/migrate", async (c) => {
   }
 });
 
-// --- Chat LLM: compila intenção em processo existente (process_ingress.v1) ---
-// Centro de gravidade é registro em forma de processo. Chat via LLM puro — sem heurística.
-// Golden-bridge: Workers AI (AI binding) é a única via; sem provider retorna 503.
+// --- Chat LLM: só golden-bridge, fetch tudo da API, zero chave, zero hardcode ---
 app.post("/api/chat/compile", async (c) => {
   const body = await c.req.json().catch(() => null) as { intent?: string; model?: string } | null;
   const intent = body?.intent?.trim();
   const requestedModel = body?.model?.trim();
   if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
 
-  const CATALOG = [
-    { process_id: "memory-register.v1", title: "Memória", requires: [] as string[], accepts: ["descricao"], danger_tier: "L0", needs_approval: false, irreversible: false, runnable: true },
-    { process_id: "inference.v1", title: "Inference", requires: [] as string[], accepts: [] as string[], danger_tier: "L3", needs_approval: true, irreversible: false, runnable: true },
-    { process_id: "worker-run.v1", title: "Worker run", requires: [] as string[], accepts: [] as string[], danger_tier: "L4", needs_approval: true, irreversible: false, runnable: false },
-    { process_id: "attention-raise.v1", title: "Atenção", requires: [] as string[], accepts: [] as string[], danger_tier: "L0", needs_approval: false, irreversible: false, runnable: true },
-    { process_id: "projection-build.v1", title: "Resumo", requires: [] as string[], accepts: [] as string[], danger_tier: "L1", needs_approval: false, irreversible: false, runnable: true },
-  ];
-
-  // Sem heurística — golden-bridge junta os 3 provedores (Vercel / Cloudflare / local)
-// Ordem: Vercel AI Gateway (via fetch) → Cloudflare Workers AI (AI binding) → LLM local (LOCAL_LLM_URL, ex 10.88.0.10:1234 no cabo lab 512↔8GB)
-  const catalogText = CATALOG.map(t => `${t.process_id} | ${t.title} | requires=[${t.requires.join(",")}] | accepts=[${t.accepts.join(",")}] | danger=${t.danger_tier}`).join("\n");
-  const systemPrompt = `Compile the supplied intent into one registered process type and its domain fields.
-
-Catalog:
-${catalogText}
-
-Return JSON matching process_ingress.v1 exactly:
-{ process_id: string (from catalog only), fields: object (only declared keys), missing: string[], citations: string[] (64 hex), note?: string }
-
-Intent: "${intent.replace(/"/g, '\\"')}"`;
-
-  async function callVercel(): Promise<string | null> {
-    const url = (c.env.VERCEL_AI_GATEWAY_URL ?? c.env.AI_GATEWAY_URL)?.replace(/\/+$/, "");
-    const token = c.env.VERCEL_AI_GATEWAY_TOKEN ?? c.env.AI_GATEWAY_TOKEN;
-    if (!url || !token) return null;
-    try {
-      const res = await fetch(`${url}/v1/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ model: "openai/gpt-4o-mini", messages: [{ role: "user", content: systemPrompt }], temperature: 0 }),
-      });
-      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-      return j.choices?.[0]?.message?.content ?? null;
-    } catch (e) { console.error("vercel gateway failed", e); return null; }
-  }
-  async function callLocal(modelHint?: string): Promise<string | null> {
-    const url = c.env.LOCAL_LLM_URL?.replace(/\/+$/, "");
-    if (!url) return null;
-    try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (c.env.LOCAL_LLM_TOKEN) headers["Authorization"] = `Bearer ${c.env.LOCAL_LLM_TOKEN}`;
-      const model = modelHint && (modelHint.includes("mistral") || modelHint.includes("qwen") || modelHint.includes("llama") || modelHint.includes("lfm")) ? modelHint : "mistral-nemo-12b";
-      const res = await fetch(`${url}/v1/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ model, messages: [{ role: "user", content: systemPrompt }], temperature: 0, stream: false }),
-      });
-      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }>; response?: string };
-      return j.choices?.[0]?.message?.content ?? j.response ?? null;
-    } catch (e) { console.error("local llm failed", e); return null; }
-  }
-  function shouldUseLocal(model?: string) { return !!model && (model.startsWith("mistral") || model.startsWith("qwen") || model.startsWith("llama") || model.startsWith("lfm") || model.includes("local")); }
-  function shouldUseVercel(model?: string) { return !!model && (model.includes("gpt") || model.includes("claude") || model.includes("vercel") || model.startsWith("openai/") || model.startsWith("anthropic/")); }
-  function shouldUseCF(model?: string) { return !!model && model.startsWith("@cf/"); }
-
+  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.minilab.work").replace(/\/+$/, "");
+  // Delega tudo ao golden-bridge (lab 512): ele junta Vercel/CF/local internamente
   try {
-    // golden-bridge: respeita modelo escolhido na UI; sem escolha, tenta Vercel → CF → local
-    let text: string | null = null;
-    if (!requestedModel || shouldUseVercel(requestedModel)) text = await callVercel();
-    if (!text && (!requestedModel || shouldUseCF(requestedModel) || (!shouldUseLocal(requestedModel) && !shouldUseVercel(requestedModel))) && c.env.AI) {
-      const cfModel = requestedModel && shouldUseCF(requestedModel) ? requestedModel : "@cf/meta/llama-3.1-8b-instruct";
-      const ai = c.env.AI as unknown as { run: (model: string, opts: unknown) => Promise<unknown> };
-      const raw: unknown = await ai.run(cfModel, { prompt: systemPrompt, max_tokens: 512 });
-      if (typeof raw === "string") text = raw;
-      else if (raw && typeof raw === "object" && "response" in (raw as Record<string, unknown>)) text = String((raw as Record<string, unknown>).response);
-      else text = JSON.stringify(raw);
+    const r = await fetch(`${base}/v1/chat/compile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ intent, model: requestedModel }),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      return c.json({ error: `golden-bridge error: ${r.status} ${txt.slice(0, 400)}`, code: "golden-bridge-error" }, 502);
     }
-    if (!text && (!requestedModel || shouldUseLocal(requestedModel))) text = await callLocal(requestedModel);
-    if (!text) return c.json({ error: "LLM provider not configured or all failed — set VERCEL_AI_GATEWAY or AI binding or LOCAL_LLM_URL", code: "provider-not-configured" }, 503);
+    const j = await r.json() as { suggestion?: unknown; candidates?: unknown[]; intent?: string; error?: string };
+    return c.json(j);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return c.json({ error: `golden-bridge unavailable: ${msg.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
+  }
 
     // Extrai JSON do texto (modelo pode envolver em markdown)
     const m = text.match(/\{[\s\S]*\}/);
