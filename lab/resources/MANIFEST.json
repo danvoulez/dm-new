@@ -1,0 +1,655 @@
+{
+  "files": [
+    {
+      "sha256": "a4966a8788959b5f1e3bcded7d830bedf676343e4a14839c838c150211b71c59",
+      "size": 934,
+      "source": "processes/CURRENT_RUNNABLE_PROCESSES.md"
+    },
+    {
+      "sha256": "221bf11f0065573eb1010acad8ff12ad84faf9ff361f10b69ac630d043b14dff",
+      "size": 930,
+      "source": "processes/PROCESS_CATALOG.md"
+    },
+    {
+      "sha256": "87d3ba82da2f618f3a3a6259909d81aada1ecfb8ca9519c5e69f1860fd37546b",
+      "size": 1002,
+      "source": "processes/PROCESS_CONTRACT_TEMPLATE.yml"
+    },
+    {
+      "sha256": "85357c7b0710fb65a2c4e381181a5688f3084d6adfe55638924a6ec36b238f57",
+      "size": 266,
+      "source": "processes/attention-raise.v1.yml"
+    },
+    {
+      "sha256": "9d13b97b68ef998c80ea30211d2e2dca3b2622af466bdcb7bed08dbc02ed18e3",
+      "size": 598,
+      "source": "processes/evidence-closure.v1.yml"
+    },
+    {
+      "sha256": "45cc03444ef6c08724662342358f5afd111901978f9fb819af6e3424534d6c2c",
+      "size": 574,
+      "source": "processes/github-check.v1.yml"
+    },
+    {
+      "sha256": "73f270ab85cf526015f49e6e33eb964c7b18a4a7b0a19674e45d0f43bd6d1865",
+      "size": 350,
+      "source": "processes/inference.v1.yml"
+    },
+    {
+      "sha256": "74f3ea6e0d6d8c5f712f44b24bd6c1d66527d19c7b7ebf8bfaccbd15cf4fdb15",
+      "size": 304,
+      "source": "processes/memory-register.v1.yml"
+    },
+    {
+      "sha256": "71dba986c8801c2b1b75556dfe5cf7fdcf18389ab8a291c4ec283b390b974f9e",
+      "size": 538,
+      "source": "processes/notification.v1.yml"
+    },
+    {
+      "sha256": "5e6537a27be01011cab926b42088b685684a963de17f65fa38af01a5c8ba2dd9",
+      "size": 610,
+      "source": "processes/oauth-client.v1.yml"
+    },
+    {
+      "sha256": "570bf6f00181033152645bd2212772e0326e502b667b1f6a48af540bad9c58d7",
+      "size": 351,
+      "source": "processes/projection-build.v1.yml"
+    },
+    {
+      "sha256": "347d910ed31c9871b33097cd200c98d1141c3249249190f2a4fae9104aaece8d",
+      "size": 646,
+      "source": "processes/route-to-devin.v1.yml"
+    },
+    {
+      "sha256": "de999f49d0386c33303e1456eeed83fee44d7397f015ddab5f0f78505c240c7c",
+      "size": 302,
+      "source": "processes/worker-run.v1.yml"
+    },
+    {
+      "sha256": "66b4e56d26fdb99d2d73051897d050c68f982fde095e6a63790143e8a968e658",
+      "size": 306,
+      "source": "processes/workflow-run.v1.yml"
+    },
+    {
+      "sha256": "ed877ab126e86b1caf73af395b91d209b331a0c7f412232940d130b51a84f584",
+      "size": 461,
+      "source": "fleet/machines/lab-256.yml"
+    },
+    {
+      "sha256": "44b660ae9526b48e4e2a51bdeca7b68662fe1efb5073ba3991993c294d7c3a10",
+      "size": 476,
+      "source": "fleet/machines/lab-512.yml"
+    },
+    {
+      "sha256": "d6b6f0da41f56aa6463073b6d4c0e66f59371eb079daac61a76b426d6eeef595",
+      "size": 499,
+      "source": "fleet/machines/lab-8gb.yml"
+    },
+    {
+      "sha256": "89f0644063a50f65a49aba602d2956413debef08d860d19bac39eba2266002de",
+      "size": 169,
+      "source": "fleet/services/allowlist.yml"
+    },
+    {
+      "sha256": "ad0fabc37d4766cb93173e5f0bb2dfbd1ae842ded51c3ed395df19a98a176198",
+      "size": 263,
+      "source": "fleet/services/clock-selector.yml"
+    },
+    {
+      "sha256": "ea4b445183a9a281a6845126c0736f0bca921aeaed3139681acf437cd32c181e",
+      "size": 301,
+      "source": "fleet/services/executor-dispatcher.yml"
+    },
+    {
+      "sha256": "1c3fcd4ce519a7ae68874adb972db458d20b87d433a120b626252566b585e576",
+      "size": 280,
+      "source": "fleet/services/projection-rebuilder.yml"
+    },
+    {
+      "sha256": "19438759d72375334a9b2a4b99631d2dfb31d07e66624f4a8297dc962fa9f7d5",
+      "size": 278,
+      "source": "fleet/services/receiver-selector.yml"
+    },
+    {
+      "sha256": "ec5f226f0ffc32c491b9b22b00f286ee2a4337d531dd50e1431632063893f999",
+      "size": 1492,
+      "source": "schemas/llm/process_ingress.v1.json"
+    },
+    {
+      "sha256": "fd01dadff65f0881f719e6fa4b8ccffcba1db34bc0803dfad4adc4eff75b64ec",
+      "size": 371,
+      "source": "schemas/llm/route_decision.v1.json"
+    },
+    {
+      "sha256": "d57a39b52495dd6af2e3ca55c69ec693faefebeee3865489703d6c5310666ee4",
+      "size": 338,
+      "source": "schemas/llm/summary.v1.json"
+    },
+    {
+      "sha256": "80c580cb22e8da8ab5dc50b1a321f9cfe23459ede2da41551c10ce4b6523aaac",
+      "size": 992,
+      "source": "schemas/logline/receipt.v0.schema.json"
+    },
+    {
+      "sha256": "2ad3d717b71604ed4c68b11c1839a1ec009b4b66811d22e73225ab4e099fa39b",
+      "size": 2791,
+      "source": "migrations/0001_logline_acts.sql"
+    },
+    {
+      "sha256": "857dcd3b9f9c5a202ef7774d45059a65cb0c5aae9de35797d151e1b4f94b9c88",
+      "size": 793,
+      "source": "migrations/0002_realtime_publication.sql"
+    },
+    {
+      "sha256": "4ef877cf6fde3d8a956e21509543bbb6f1d9f276c3aa335e7466c8a09c668212",
+      "size": 1018,
+      "source": "migrations/0003_rls_and_search_path.sql"
+    },
+    {
+      "sha256": "1c606050b01f5e6efee07db28bd8f19678874bd47b7f74b28108d5c7946f9c28",
+      "size": 2350,
+      "source": "tests/fixtures/dream-machine/ACCEPTANCE_TESTS.md"
+    },
+    {
+      "sha256": "7e8e4e5f4f7b6f561c27ce0d25d7ab283b54f14903aef9b0afb1148296647256",
+      "size": 6390,
+      "source": "tests/fixtures/dream-machine/CLI.md"
+    },
+    {
+      "sha256": "aa3a30bb5d6347b9e93ef601b865f3f37ed3ed02c10ca8662cf216363a6406c7",
+      "size": 22963,
+      "source": "tests/fixtures/dream-machine/DREAM_MACHINE_IMPLEMENTATION_SPEC.md"
+    },
+    {
+      "sha256": "ac280476ef9d39b1d9e58d35ef1241ee5930b28e3b0ed766c821ed4ad9281ce4",
+      "size": 4220,
+      "source": "tests/fixtures/dream-machine/IDS.md"
+    },
+    {
+      "sha256": "079c393bd7c634055ec9fcc8fa8f3ed76cba3e99a67c164a9cde79a21620c6eb",
+      "size": 2744,
+      "source": "tests/fixtures/dream-machine/INVARIANTS.md"
+    },
+    {
+      "sha256": "3ce9634322ae8a7cc1de84c72c221e974f7fdfb1631bb16c0e89620967d5cc8b",
+      "size": 1949,
+      "source": "tests/fixtures/dream-machine/README.md"
+    },
+    {
+      "sha256": "f16b5b11b5979a971ec8d29f0f2cea030b07eb8f1408696f56c1b4863fac6af2",
+      "size": 1640,
+      "source": "tests/fixtures/dream-machine/RISKS_AND_MITIGATIONS.md"
+    },
+    {
+      "sha256": "b1e5c4f1671c85ca097294e343d0380a8ee3c70b309dbfb9473a916c100eb3ac",
+      "size": 2014,
+      "source": "tests/fixtures/dream-machine/TASK_GRAPH.md"
+    },
+    {
+      "sha256": "48c1c7f971e02111198c4116db456bd66c9a8ddb42217864ac55e6c760eb636b",
+      "size": 679,
+      "source": "tests/fixtures/dream-machine/examples/example_dream_answer.json"
+    },
+    {
+      "sha256": "f3eec5bb66ba1ac7f361ba446a637d52d82cb1ea57c5aeeaa0048adb3255683c",
+      "size": 468,
+      "source": "tests/fixtures/dream-machine/examples/invalid/canonical_map.bad_ref.json"
+    },
+    {
+      "sha256": "fb686f78a20bee5e022991b43999fd77e736d8fe6ce98d6cb6228c88623e0615",
+      "size": 327,
+      "source": "tests/fixtures/dream-machine/examples/invalid/claim.no_evidence.json"
+    },
+    {
+      "sha256": "5b9c1810deabf9a7d3a652f091df13c51ea04924def5aca803836faa89189f7a",
+      "size": 397,
+      "source": "tests/fixtures/dream-machine/examples/invalid/dream_answer.no_unknowns.json"
+    },
+    {
+      "sha256": "e9b65072e952a10c227bf6cee29562a48b773449c26a5ad6f5a1a90824bfb801",
+      "size": 296,
+      "source": "tests/fixtures/dream-machine/examples/invalid/source_manifest.bad_kind.json"
+    },
+    {
+      "sha256": "df64764a32ec551e87dc936789351fd060c5129186d3676d6e9edab822c17892",
+      "size": 843,
+      "source": "tests/fixtures/dream-machine/examples/valid/canonical_map.valid.json"
+    },
+    {
+      "sha256": "3c12aa472e1ef049b7daddc1103163573f4e3ea10dba9f944ae3c22626aeb1d4",
+      "size": 490,
+      "source": "tests/fixtures/dream-machine/examples/valid/claim.valid.json"
+    },
+    {
+      "sha256": "3f45bcc830bdfdd015e4130f3d8c7c7f48ab1fd379132ef984e1475a9815849e",
+      "size": 412,
+      "source": "tests/fixtures/dream-machine/examples/valid/source_manifest.valid.json"
+    },
+    {
+      "sha256": "f3c0028c69b94e795c146a9ffb3295b02e65912af466a8a8064bf8e69192a469",
+      "size": 1867,
+      "source": "tests/fixtures/dream-machine/schemas/canonical_map.schema.json"
+    },
+    {
+      "sha256": "a0dbe6bfd75bbc2aa6fdb6b3670ec912481e36b366ad6586b1680d77d6e77eb6",
+      "size": 1244,
+      "source": "tests/fixtures/dream-machine/schemas/claim.schema.json"
+    },
+    {
+      "sha256": "f589706045accb9c6b0e3baa8b92bc79ca6afa46c4e060c2fd045d031c5af106",
+      "size": 953,
+      "source": "tests/fixtures/dream-machine/schemas/dream_answer.schema.json"
+    },
+    {
+      "sha256": "536f73025883ea10ccb1841a97f618c4df2695ff1506a75348e3b3cb83888ce5",
+      "size": 772,
+      "source": "tests/fixtures/dream-machine/schemas/source_manifest.schema.json"
+    },
+    {
+      "sha256": "74a1991507c56f802d6d4bc28b967aa75de015a0093e0ed1f4ffc222fafbd5f9",
+      "size": 241,
+      "source": "tests/fixtures/evidence-complete/inference-complete.json"
+    },
+    {
+      "sha256": "53f82a1c195fad70d8803665ffc4ba4c3dd40f807532b690f9dbd53b61252a6a",
+      "size": 156,
+      "source": "tests/fixtures/evidence-incomplete/inference-missing-output-hash.json"
+    },
+    {
+      "sha256": "44b3cc2ac0add1262ba99c7465017ffb78aa1b2fbc5e1aec5fafa66639e96934",
+      "size": 156,
+      "source": "tests/fixtures/evidence-incomplete/inference-missing-schema-hash.json"
+    },
+    {
+      "sha256": "1ead6632bdcfbfc6a4dc3de0ed2e3271026a84f5e6e9b7b9a5a71484d8823f5a",
+      "size": 69,
+      "source": "tests/fixtures/logline-foundation/conformance/.gitignore"
+    },
+    {
+      "sha256": "4dd6f866ca7fc141f797282fc927db3dbf9173062961fce7f0539426473789a9",
+      "size": 7468,
+      "source": "tests/fixtures/logline-foundation/conformance/README.md"
+    },
+    {
+      "sha256": "d93b7b4be3c9dcf2cad99734d8c92bc0cd82d04eda2a3b72f8b8c2a101bdd02e",
+      "size": 3960,
+      "source": "tests/fixtures/logline-foundation/conformance/cases/adapter-cases.json"
+    },
+    {
+      "sha256": "ebe35c9f5401c2ba3a4f46548d89e3174f13966a43bb2afb6362aff918146932",
+      "size": 1725,
+      "source": "tests/fixtures/logline-foundation/conformance/cases/canon-cases.json"
+    },
+    {
+      "sha256": "3eda9520d436bf204eec729fc785e4d07b3a5a0c8c5b6b0b7dd73e711317ddf3",
+      "size": 5656,
+      "source": "tests/fixtures/logline-foundation/conformance/cases/if-doubt-cases.json"
+    },
+    {
+      "sha256": "2c3974d76289307b7db9d2d89ed6c7083776f7a64193be5d2ea77321df5422db",
+      "size": 3256,
+      "source": "tests/fixtures/logline-foundation/conformance/cases/receipt-cases.SUPERSEDED.json"
+    },
+    {
+      "sha256": "70c241dec4926881fd0835dddbb7114cdaed02657538d40079a87697b7122b9f",
+      "size": 2379,
+      "source": "tests/fixtures/logline-foundation/conformance/cases/receipt-cases.json"
+    },
+    {
+      "sha256": "d777c39093361bf3a1796a2a6fbda4936ce568d9f1b0b7ab0f2f58b6f8e69d8b",
+      "size": 618,
+      "source": "tests/fixtures/logline-foundation/conformance/fixtures/receipt.invalid.json"
+    },
+    {
+      "sha256": "65059c1db498a3fe456992629dd3dea3e90e19b2ed68ac73157e9ad47f401d92",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/fixtures/receipt.valid.json"
+    },
+    {
+      "sha256": "01b151dbcadf3dc9a9a0ade4b3aeb47c0b1d53a3b2c0a7d13fb78083a77ca2e8",
+      "size": 3168,
+      "source": "tests/fixtures/logline-foundation/conformance/hash-profiles/jcs-rfc8785.md"
+    },
+    {
+      "sha256": "0c7ab3091f062aed128f9baa879518905a952044d44f96e5833b45aaccfa6dc9",
+      "size": 1716,
+      "source": "tests/fixtures/logline-foundation/conformance/schemas/logline.adapter-declaration.v0.schema.json"
+    },
+    {
+      "sha256": "a432d08c2c18cbcc725cdb09b31fa73fb0c2930790aab73b0bae24064728b370",
+      "size": 4389,
+      "source": "tests/fixtures/logline-foundation/conformance/schemas/logline.canon.v0.schema.json"
+    },
+    {
+      "sha256": "d06707ae32a69c02177ab46a4aa71259447900c399451ca4e6eb099910a3f8e1",
+      "size": 6113,
+      "source": "tests/fixtures/logline-foundation/conformance/schemas/logline.receipt.v0.schema.json"
+    },
+    {
+      "sha256": "7393dd21a7d50e6f6d1e34988c217a1f3acc5d7d319d21a872c3c99f03f0aaa0",
+      "size": 10340,
+      "source": "tests/fixtures/logline-foundation/conformance/tools/verify-receipt.mjs"
+    },
+    {
+      "sha256": "ce131bdef8c1e9a44f0075e5e88b5233caa7526591d3fbb8515297786d4a54ad",
+      "size": 453,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/adapter/valid/adapter-conformance.report.json"
+    },
+    {
+      "sha256": "bc0c3119dbb3d3def644ce9c549072c70b75a953a00dbe8ef0fdf77d81621f0f",
+      "size": 615,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/adapter/valid/adapter-declaration.inbound.json"
+    },
+    {
+      "sha256": "ebebb804260443aa3f25600b8e57e536303afec32afee9aabc07694acc872ea0",
+      "size": 220,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/adapter/valid/adapter-declaration.inbound.logline"
+    },
+    {
+      "sha256": "9e8e4cd072fd680fe14b6ef349989fda70f0c661b4fbc113d97646fbf6de411a",
+      "size": 222,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/adapter/valid/adapter-declaration.release.logline"
+    },
+    {
+      "sha256": "593eb5b7838ce8abe9b252ecbf3f762b74a05ee787b41a762edc1c34837296fc",
+      "size": 1596,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/adapter/valid/adapter-lifecycle.minimal.logline"
+    },
+    {
+      "sha256": "319219c1600a9454509746d1b27af5162555228007fa99d0c66e1eba67edbce4",
+      "size": 121,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/ambiguous/none-confirmation.logline"
+    },
+    {
+      "sha256": "4ea2be849f612060e2bd4b195d144d4419edbe708302096aea5f1858799276e4",
+      "size": 124,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/ambiguous/relative-time.logline"
+    },
+    {
+      "sha256": "d350bdc23cac321c23f98c4f17ff9e08290985663f846bea811971be89ba222a",
+      "size": 129,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/invalid/marker-order.logline"
+    },
+    {
+      "sha256": "25e0ae4b12a3cbdd0b8231f54b4232903d8645fde7b2f745499994ed94ab34af",
+      "size": 112,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/invalid/missing-confirmed-by.logline"
+    },
+    {
+      "sha256": "a296bdd2a85c977dd5d71648024eaf35d4ee63641e45d6a1feed665272d6f386",
+      "size": 74,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/form-require.logline"
+    },
+    {
+      "sha256": "95968cb2dd32037ed7c6157bc7ada9d9eb2be728edaa0dd9c890f0721fe2ea7e",
+      "size": 5581,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/logline.canon.json"
+    },
+    {
+      "sha256": "735472bd1c3197541867ce4d93c2b170b83540b2d0a341a836837a292b5245c5",
+      "size": 2027,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/logline.canon.logline"
+    },
+    {
+      "sha256": "573dbab407bf477911ceedb190c67781b7151520d4d2356b79cc4495ecc127db",
+      "size": 128,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/minimal.logline"
+    },
+    {
+      "sha256": "3f3bf10aebea4594db02ef0ece7b7cb22363defb7649ed078918b07962d9404b",
+      "size": 243,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/sample.not.json"
+    },
+    {
+      "sha256": "3fcd056973ddfdff4899cf010e4f5290e091ecd89b968ac5add279dad2e963d2",
+      "size": 203,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/sample.ok.json"
+    },
+    {
+      "sha256": "7192b1fbd00c40c99a64a0777530c412175e3bbafba4fc534c688df8b148b239",
+      "size": 110,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/canon/valid/sample.ok.logline"
+    },
+    {
+      "sha256": "97a8c790a45a674e0bb1df7b49e8e6edb2b432a8713de5c78282c50bcad4a19b",
+      "size": 204,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/if-doubt/valid/sample.doubt.json"
+    },
+    {
+      "sha256": "93bdb821362591f0225d35dd9e0dcff27d6919ced29682555752b44c8d0e5947",
+      "size": 141,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/if-doubt/valid/sample.simulation.logline"
+    },
+    {
+      "sha256": "ed5979363f528f96feaaf67914d5fe125c17abbbf964f8e586e5f17bb7b68ff0",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/content-hash-mismatch.json"
+    },
+    {
+      "sha256": "bda3421dfb8f281c1fc8625a7da6e727b7ca5cf97ad57cd13a11f765b8cee3c0",
+      "size": 877,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/envelope-hash-mismatch.json"
+    },
+    {
+      "sha256": "d777c39093361bf3a1796a2a6fbda4936ce568d9f1b0b7ab0f2f58b6f8e69d8b",
+      "size": 618,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/hashes-extra-field.json"
+    },
+    {
+      "sha256": "f7c986d9a0b413c4dbe5c00dd7a7cb998d7df0d15a683db39d501ac6f56e0578",
+      "size": 621,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/hashes-has-envelope-hash.json"
+    },
+    {
+      "sha256": "7235d417e68606af3e76df996b1794efdba4192b7bcf3530f2ac64d1b2e21286",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/id-not-content-hash.json"
+    },
+    {
+      "sha256": "73b0821065d0dfc6cb5b4977df085e30e27611f030438b44ae2f46a72f603f9b",
+      "size": 612,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/legacy-evidence-field.json"
+    },
+    {
+      "sha256": "99d26348aae49596db7c0af76bfa622898df7d23a8fa3265c2ccdd39630e64e0",
+      "size": 610,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/legacy-result-field.json"
+    },
+    {
+      "sha256": "a57e2950ee7c9d93353a985a606d66dd61990032530fd5dd584ec8ff09515454",
+      "size": 694,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/legacy-transport-field.json"
+    },
+    {
+      "sha256": "8a2f48cb66e4342fbb203efeff1ecff245b21c2f7a9d0ed846a9b91bc2f80110",
+      "size": 518,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/missing-id.json"
+    },
+    {
+      "sha256": "35e935341569cb111c22aced1e6c429ca78070121296254c3232cc9ece700152",
+      "size": 578,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/missing-who.json"
+    },
+    {
+      "sha256": "7c93ec1d44c4b3681888289d18c845a25a0507bae4ed820ec160f7bc9eaac287",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/tuple-hash-mismatch.json"
+    },
+    {
+      "sha256": "4053166e41aa2597de77d5a32fd9c9db9b66177a9d936bd4f01510d293fb4e02",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/invalid/wrong-receipt-version.json"
+    },
+    {
+      "sha256": "7a93452064bebb9d0db2a07053e60060b837e6679eb8abb12f2b35b05a60f596",
+      "size": 629,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/legacy-fixtures/README.md"
+    },
+    {
+      "sha256": "7f7a0e59ce0e33b939cc3c2e2d97652f5482aa292be6b181ec2c766a8e33b122",
+      "size": 1556,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/legacy-fixtures/receipt.admission.json"
+    },
+    {
+      "sha256": "fcd658d9219c89a55a5a1c38f8319b5c11c136a449fc274a0e85a43b1dd036ac",
+      "size": 1554,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/legacy-fixtures/receipt.execution.json"
+    },
+    {
+      "sha256": "f7917b05727c913d48837bc880b143feb268f3289b498cd00edc89172b002736",
+      "size": 1287,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/legacy-fixtures/receipt.passport.json"
+    },
+    {
+      "sha256": "fee9982fc0c0b3b4ac4400528bf678a4982d0d4ccb4b14c7bb163d37419769ca",
+      "size": 1274,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/legacy-fixtures/receipt.simulation.json"
+    },
+    {
+      "sha256": "5dd1d94dc12a19d03ede2c038b06a9b88ed38b3e50d43e48067d3a41a5726b4f",
+      "size": 847,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/aux-array-order.json"
+    },
+    {
+      "sha256": "9634de31f8a0f75712c2984d289532de1162e232c82bd1532985bfc66461a939",
+      "size": 659,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/aux-key-order.json"
+    },
+    {
+      "sha256": "4a77117d92193d7a57743c5407a15b196034b0603841d75cdf9b64a49062537e",
+      "size": 796,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/aux-nested.json"
+    },
+    {
+      "sha256": "38beb0d4b5ca34fdcc183b21a124668ef90f4b948d8a4b567ddd6088fbe9fb7a",
+      "size": 729,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/aux-number-decimal.json"
+    },
+    {
+      "sha256": "58c5dec840deeef9fa235b3927218f7b24bd789ddb0ff65ed7674a42c6df109a",
+      "size": 719,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/aux-unicode.json"
+    },
+    {
+      "sha256": "65059c1db498a3fe456992629dd3dea3e90e19b2ed68ac73157e9ad47f401d92",
+      "size": 594,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/dan-rested.json"
+    },
+    {
+      "sha256": "d3649d6d37eddc74826e3e53e98bbfe7401c4fa1ace8d1a80f44607efa372553",
+      "size": 877,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/envelope.json"
+    },
+    {
+      "sha256": "f845e929b20eaf2953cff6bc8551ef62370cbad1e60b1bf3bd7036eb8cfb64ed",
+      "size": 524,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/minimal-resolved.json"
+    },
+    {
+      "sha256": "b5f8686ef98ece6753ada5a9210e9ef40f8f60593377b90c8515d0ed8f3b68e4",
+      "size": 684,
+      "source": "tests/fixtures/logline-foundation/conformance/vectors/receipt/valid/with-aux-fields.json"
+    },
+    {
+      "sha256": "5d179c12fda395292d8395fa7e6340d554c957b04c7a70bf9a74405de07f2d90",
+      "size": 1497,
+      "source": "tests/fixtures/santo-andre-vectors/ambiguous/conflicting-workflow-versions.json"
+    },
+    {
+      "sha256": "556f77e3b2e18f2409904388005c1d527e907cf238dfdac898a40d43e02dc462",
+      "size": 1594,
+      "source": "tests/fixtures/santo-andre-vectors/ambiguous/missing-runtime-evidence.json"
+    },
+    {
+      "sha256": "43b51a0d7d9978d0dbf5982de75aceb176611229df0c9e80ed65ee21d8c15ae1",
+      "size": 1365,
+      "source": "tests/fixtures/santo-andre-vectors/ambiguous/stale-pack-reference.json"
+    },
+    {
+      "sha256": "be837032dcf7ccbd45419ea09fd5606849cf94480c4d97fe37c4cebcf8876c71",
+      "size": 1334,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/candidate-selects-unregistered-policy.json"
+    },
+    {
+      "sha256": "a78d1c177bdcc169b25da3d6670d66b3370e685ba627c398b9a32f4fc8f4e144",
+      "size": 1142,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/card-without-sent_to.json"
+    },
+    {
+      "sha256": "8228535a6122f43f563b60304b9993d7bd2c85b6364944d3307eba4c5308a4aa",
+      "size": 2252,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/off-reel-envelope.json"
+    },
+    {
+      "sha256": "cadac462fef5a47082e15044ed9df961e8955c5873287bae1265aef4fddfc593",
+      "size": 1220,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/qualifier-one-without-hash.json"
+    },
+    {
+      "sha256": "bb5603b44bd65dd50c4c392ea2cbebca06dfaaf9ae85fd67b8aa0415db8815a2",
+      "size": 1430,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/run-hash-on-original-request-act.json"
+    },
+    {
+      "sha256": "d007b0e4686f0a646dd5cbad0c8a62780bb91037c92f7d8d66dbb7a0be65c23e",
+      "size": 1269,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/runtime-without-qualifier.json"
+    },
+    {
+      "sha256": "9bdc713840cf7555b20bbcefd2bda4e66b04c154c5f696120d8d44902716b082",
+      "size": 1397,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/type-field-treated-as-authority.json"
+    },
+    {
+      "sha256": "333459e28734e230cb37be9246b930e7f6c420e34def800f51e9e3642cca0c99",
+      "size": 2000,
+      "source": "tests/fixtures/santo-andre-vectors/invalid/workflow-with-floating-policy-name.json"
+    },
+    {
+      "sha256": "6fe3c5a5c0eb9abd90bd93f86276b8dab2ee8682f496c65e51b9c3ef95ee6c1c",
+      "size": 2586,
+      "source": "tests/fixtures/santo-andre-vectors/valid/qualified-request-mints-separate-result-act.json"
+    },
+    {
+      "sha256": "fdad7346a89ae373c300283a3e4dc538c4460183a934e3e610b40a03923b5359",
+      "size": 1210,
+      "source": "tests/fixtures/santo-andre-vectors/valid/register-only-act-has-qualifier-runtime-run-zero.json"
+    },
+    {
+      "sha256": "e23e91bf9b07d202bb2459fd266d011fbc1956b993205386b0afd8c2a1fe2cde",
+      "size": 2279,
+      "source": "tests/fixtures/santo-andre-vectors/valid/workflow-next-sent_to-is-deterministic.json"
+    },
+    {
+      "sha256": "020847bb668299d115d081a66747f0d20a28c874df468f46ed7ed13ecfef1bd4",
+      "size": 1470,
+      "source": "prompts/process_ingress.v1.txt"
+    },
+    {
+      "sha256": "7f45c36efaa4364d57c45c2dbb47ac5bc83d26b8001b67892bebc82a42c40d2c",
+      "size": 230,
+      "source": "prompts/summarize.v1.txt"
+    },
+    {
+      "sha256": "94d59b4bdd0886d73f092b7e7e62af95dc01962ad8d93553ddf257ae6e8de548",
+      "size": 1024,
+      "source": "MODEL_REGISTRY.md"
+    },
+    {
+      "sha256": "82d5a56c57eb7d0eb06dbffc61c35751717f3f6007400adc9a405c905a1fbcdf",
+      "size": 645,
+      "source": "PROMPT_REGISTRY.md"
+    },
+    {
+      "sha256": "06146fbea906713a50dad17675b1dba71ebfc627c04d1f94252f99e9b6684871",
+      "size": 723,
+      "source": "SCHEMA_REGISTRY.md"
+    },
+    {
+      "sha256": "80ad6e150d0b68c2639b2b059db59959ce3f4eb5a71ebbba40519ab5a3f92ac0",
+      "size": 596,
+      "source": "LLM_RECEIPT.v1.md"
+    }
+  ],
+  "format": "dream-machine-lab.resources.v1"
+}

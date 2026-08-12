@@ -1,0 +1,13 @@
+process_id: evidence-closure.v1
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+# §18 — CONTRACT-ONLY. evidence-closure describes how a process closes over evidence; it
+# performs no work itself. Closure is enacted by the executor (close_evidence_incomplete /
+# fechado), not by enqueuing this contract. No adapter -> no_adapter_configured doubt if
+# ever addressed; it never reaches the queue as a receipt.
+adapters: []
+evidence_obligation: separate-result-act
+doubt_path: attention-raise.v1

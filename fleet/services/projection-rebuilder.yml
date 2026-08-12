@@ -1,0 +1,9 @@
+service_name: projection-rebuilder
+machine: lab-512
+binary: /Lab/bin/lab
+env_file: /Lab/env/projection.env
+logs: /Lab/logs/projection.log
+restart_policy: manual
+purpose: rebuilds non-authoritative projections
+allowed_process_classes: [projection]
+health_check: lab project verify

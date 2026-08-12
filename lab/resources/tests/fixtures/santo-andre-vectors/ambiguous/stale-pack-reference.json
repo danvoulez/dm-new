@@ -1,0 +1,39 @@
+{
+  "vector": "stale-pack-reference",
+  "expect": "ambiguous",
+  "tests": [
+    "law 13",
+    "law 18"
+  ],
+  "reason": "The Act pins a pack declaration hash that has since been superseded. Admitting as current would be false; flat refusal would erase that it was valid under that pack \u2014 open a ghost.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "registered",
+    "this": "an act pinned to a superseded pack declaration",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "7777777777777777777777777777777777777777777777777777777777777777",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  },
+  "references": {
+    "pack_is_current": false,
+    "pack_superseded": true
+  }
+}

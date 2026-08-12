@@ -1,0 +1,35 @@
+{
+  "vector": "register-only-act-has-qualifier-runtime-run-zero",
+  "expect": "valid",
+  "tests": [
+    "law 9",
+    "law 10"
+  ],
+  "reason": "Register-only Acts must carry qualifier=0, runtime=0, and run=0; no code runs.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "registered",
+    "this": "a register-only note under the Santo Andr\u00e9 Lab Pack",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  }
+}

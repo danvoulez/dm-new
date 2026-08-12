@@ -1,0 +1,64 @@
+name: Release
+
+# Publishes the package to PyPI via Trusted Publishing (OIDC) — no API tokens stored.
+# Fires when a GitHub Release is published; can also be run by hand (e.g. to publish a
+# release that predates this workflow). Publishing a version to PyPI is irreversible, so
+# the build is gated on the full test suite + metadata check before anything is uploaded.
+#
+# One-time setup on PyPI (cannot be done from here — see the PR description):
+#   Register a Trusted Publisher (or a "pending publisher" for the not-yet-created
+#   project) with: owner danvoulez, repo dream-machine, workflow release.yml,
+#   environment pypi.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"   # LogLine Foundation reference verifier (conformance suite)
+      - name: Install (with crypto extra) + tooling
+        run: pip install -e ".[webauthn]" pytest build twine
+      - name: Test gate (publishing is irreversible)
+        run: pytest -q
+      - name: Build sdist + wheel
+        run: |
+          rm -rf dist
+          python -m build
+      - name: Validate distribution metadata
+        run: twine check dist/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/*
+
+  pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/dream-machine-lab
+    permissions:
+      id-token: write   # OIDC token for Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1

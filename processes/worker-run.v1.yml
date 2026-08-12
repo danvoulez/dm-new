@@ -1,0 +1,11 @@
+process_id: worker-run.v1
+status: active
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+adapters: [worker_run]
+danger_tier: L4
+evidence_obligation: separate-result-act
+doubt_path: attention-raise.v1

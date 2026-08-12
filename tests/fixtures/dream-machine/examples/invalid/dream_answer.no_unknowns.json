@@ -1,0 +1,9 @@
+{
+  "_why_invalid": "AT10: required field 'unknowns' is missing. An answer must name unknowns (or an explicit empty array), never omit them.",
+  "question": "Which ActGraph gate design is canonical?",
+  "answer": "The single admission path is canonical.",
+  "confidence": 0.99,
+  "evidence": [{"ref": "chunk:example1", "summary": "Formal foundations."}],
+  "contradictions": [],
+  "actions": []
+}

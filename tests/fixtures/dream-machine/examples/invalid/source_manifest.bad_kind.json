@@ -1,0 +1,7 @@
+{
+  "_why_invalid": "kind 'git' is not in the enum (repo|folder|chat_export|drive_export|screenshot_set|log_bundle|database_schema|unknown).",
+  "source_id": "source:000000000000000000000000000bad00",
+  "kind": "git",
+  "discovered_at": "2026-06-13T10:30:00Z",
+  "semantic_status": "not_truth"
+}

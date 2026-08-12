@@ -1,0 +1,13 @@
+process_id: github-check.v1
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+# §19 — CONTRACT-ONLY until the GitHub App door exists (Day 6). The Checks API is
+# GitHub-App-only and needs `checks:write`; no adapter is registered, so this cannot run and
+# never falls back to a receipt. Future: L3 with a github adapter + check_result evidence.
+# See docs/GITHUB_APP_BOOTSTRAP_NOTES.md.
+adapters: []
+evidence_obligation: separate-result-act
+doubt_path: attention-raise.v1

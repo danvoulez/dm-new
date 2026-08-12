@@ -1,0 +1,40 @@
+{
+  "vector": "conflicting-workflow-versions",
+  "expect": "ambiguous",
+  "tests": [
+    "law 15",
+    "law 18"
+  ],
+  "reason": "The Act and its route imply two different workflow versions; deterministic routing is impossible. Open a ghost rather than guess the road.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "played",
+    "this": "an act whose workflow pin conflicts with the route's workflow",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  },
+  "references": {
+    "act_workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "route_workflow": "7777777777777777777777777777777777777777777777777777777777777777",
+    "workflow_versions_conflict": true
+  }
+}

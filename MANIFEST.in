@@ -1,0 +1,13 @@
+include README.md LICENSE NOTICE CHANGELOG.md SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md
+include GENESIS.md MODEL_REGISTRY.md PROMPT_REGISTRY.md SCHEMA_REGISTRY.md LLM_RECEIPT.v1.md
+include LAB\ FINAL\ SPEC\ v0.md
+include LAB\ FINAL\ IMPLEMENTATION\ SPEC\ v0.md
+recursive-include lab/resources *
+recursive-include processes *
+recursive-include migrations *
+recursive-include schemas *
+recursive-include prompts *
+recursive-include fleet *
+recursive-include docs *
+recursive-include tools *.py
+recursive-include scripts *

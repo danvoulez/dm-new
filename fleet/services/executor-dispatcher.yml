@@ -1,0 +1,9 @@
+service_name: executor-dispatcher
+machine: lab-8gb
+binary: /Lab/bin/lab
+env_file: /Lab/env/executor.env
+logs: /Lab/logs/executor.log
+restart_policy: launchd
+purpose: governed dispatcher for queued work
+allowed_process_classes: [content, effect, evidence, projection]
+health_check: lab executor status

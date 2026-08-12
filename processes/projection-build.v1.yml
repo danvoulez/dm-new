@@ -1,0 +1,12 @@
+process_id: projection-build.v1
+status: active
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+adapters: [projection]
+danger_tier: L1
+evidence_obligation: separate-result-act
+evidence_must_include: [projection_hashes]
+doubt_path: attention-raise.v1
