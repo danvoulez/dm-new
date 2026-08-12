@@ -1,0 +1,24 @@
+name: test-pooler
+on: workflow_dispatch
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client dnsutils
+      - name: Test all poolers
+        env:
+          PGPASSWORD: REDACTED
+        run: |
+          for region in us-east-1 us-east-2 us-west-1 us-west-2 eu-west-1 eu-central-1 eu-west-2 eu-north-1 ap-southeast-1 ap-northeast-1 ap-south-1 sa-east-1; do
+            echo "=== $region ==="
+            host="aws-0-$region.pooler.supabase.com"
+            echo "host $host"
+            # try transaction 6543 and session 5432, with both user formats
+            for port in 6543 5432; do
+              for user in "postgres.loervapotjchdkapkmup" "postgres"; do
+                echo -n "  $user@$host:$port -> "
+                timeout 4 psql "host=$host port=$port dbname=postgres user=$user sslmode=require connect_timeout=3" -c "select 1" 2>&1 | head -n 1 | tr -d '\n'; echo " exit:$?"
+                sleep 0.5
+              done
+            done
+          done
