@@ -5,5 +5,14 @@
     "directory": "../../ui/dist/public",
     "not_found_handling": "single-page-application"
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Pendente: apex e www ainda têm CNAME para a Vercel (servem DEPLOYMENT_NOT_FOUND).
+  // Assim que os dois registros forem apagados na zona, reativar aqui para esta UI servi-los:
+  //   "routes": [
+  //     { "pattern": "carbonlab.work", "custom_domain": true },
+  //     { "pattern": "www.carbonlab.work", "custom_domain": true }
+  //   ]
+  // Deixado comentado porque o deploy falha com 100117 enquanto o CNAME externo existir,
+  // e isso derrubaria o CI.
+  "keep_vars": true
 }
