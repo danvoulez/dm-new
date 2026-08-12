@@ -101,6 +101,8 @@ export type ProcessTypeCreate = {
   description?: string;
 };
 
+export type ModelInfo = { id: string; provider: "local" | "cloudflare" | "vercel"; object: string; owned_by: string };
+
 export const dmApi = {
   health: () => req<{ ok: boolean; ledger: string; acts: number }>("/api/health"),
   now: () => req<NowView>("/api/now"),
@@ -112,6 +114,7 @@ export const dmApi = {
   projections: () => req<{ count: number; note: string; projections: ProjectionsView["projections"] }>("/api/projections"),
   grants: () => req<{ count: number; grants: unknown[] }>("/api/grants"),
   register: (body: Record<string, unknown>) => req<{ receipt: unknown; verdict: unknown; id: string; fingerprint: string | null; activated?: boolean; waiting?: { message?: string; action?: string } }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
-  chatCompile: (intent: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent }) }),
+  chatCompile: (intent: string, model?: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent, model }) }),
   createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
+  models: () => req<{ object: string; data: ModelInfo[] }>(`/api/models`),
 };

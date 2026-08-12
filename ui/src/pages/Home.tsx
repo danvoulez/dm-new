@@ -19,14 +19,24 @@ export default function Home() {
   const [editing, setEditing] = useState<Record<string, string> | null>(null);
   const [showNewType, setShowNewType] = useState(false);
   const [newType, setNewType] = useState({ process_id: "", title: "", requires: "", accepts: "", danger_tier: "L0", description: "" });
+  const [selectedModel, setSelectedModel] = useState<string>("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const { data: typesData } = useQuery({ queryKey: ["process-types"], queryFn: () => dmApi.processTypes() });
   const types = typesData?.types ?? [];
+  const { data: modelsData } = useQuery({ queryKey: ["models"], queryFn: () => dmApi.models() });
+  const models = modelsData?.data ?? [];
+  // auto-seleciona primeiro modelo quando carrega (prefer local mistral)
+  useEffect(() => {
+    if (!selectedModel && models.length) {
+      const preferred = models.find(m => m.id.includes("mistral-nemo")) ?? models[0];
+      setSelectedModel(preferred.id);
+    }
+  }, [models, selectedModel]);
 
   const compile = useMutation({
-    mutationFn: (intent: string) => dmApi.chatCompile(intent),
+    mutationFn: (intent: string) => dmApi.chatCompile(intent, selectedModel || undefined),
     onSuccess: (res) => {
       const suggestion = res.suggestion;
       if (suggestion) {
@@ -111,8 +121,16 @@ export default function Home() {
 
   return (
     <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-background">
-      <header className="flex h-[76px] shrink-0 items-center justify-center border-b border-black/[0.04] px-5 dark:border-white/[0.06]">
+      <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-black/[0.04] px-5 dark:border-white/[0.06]">
         <h1 className="text-[17px] font-semibold tracking-[-0.015em]">Conversar</h1>
+        <div className="flex items-center gap-2">
+          <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="max-w-[220px] rounded-full border bg-card px-3 py-1.5 text-[11px] font-medium">
+            {models.length === 0 ? <option>carregando modelos...</option> : models.map(m => (
+              <option key={m.id} value={m.id}>{m.id} · {m.provider}</option>
+            ))}
+          </select>
+          <span className="hidden text-[10px] text-muted-foreground md:inline">{models.length} modelos</span>
+        </div>
       </header>
 
       {!hasMessages ? (
