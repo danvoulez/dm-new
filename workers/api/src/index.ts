@@ -8,6 +8,13 @@ type Env = {
   OBJECTS: R2Bucket;
   AI: Ai;
   LAB_MODE: string;
+  // golden-bridge: unifica Vercel AI Gateway, Cloudflare Workers AI e LLM local
+  AI_GATEWAY_URL?: string;
+  AI_GATEWAY_TOKEN?: string;
+  VERCEL_AI_GATEWAY_URL?: string;
+  VERCEL_AI_GATEWAY_TOKEN?: string;
+  LOCAL_LLM_URL?: string;
+  LOCAL_LLM_TOKEN?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
@@ -174,8 +181,8 @@ app.post("/api/migrate", async (c) => {
 });
 
 // --- Chat LLM: compila intenção em processo existente (process_ingress.v1) ---
-// Centro de gravidade é registro em forma de processo. O chat via LLM (golden-bridge: Vercel/Cloudflare/local)
-// mapeia texto livre → tipo de processo + campos. Heurística local se AI/Gateway não configurado.
+// Centro de gravidade é registro em forma de processo. Chat via LLM puro — sem heurística.
+// Golden-bridge: Workers AI (AI binding) é a única via; sem provider retorna 503.
 app.post("/api/chat/compile", async (c) => {
   const body = await c.req.json().catch(() => null) as { intent?: string } | null;
   const intent = body?.intent?.trim();
@@ -189,66 +196,101 @@ app.post("/api/chat/compile", async (c) => {
     { process_id: "projection-build.v1", title: "Resumo", requires: [] as string[], accepts: [] as string[], danger_tier: "L1", needs_approval: false, irreversible: false, runnable: true },
   ];
 
-  // Golden-bridge: tenta Workers AI se binding presente, senão heurística local
-  let llmSuggestion: { process_id: string; fields: Record<string, string>; missing: string[]; citations: string[]; note: string } | null = null;
-  try {
-    if (c.env.AI) {
-      // Modelo via AI Gateway / Workers AI — prompt process_ingress.v1
-      // Fallback silencioso para heurística se falhar
-      const prompt = `Catalog: ${CATALOG.map(t=>`${t.process_id}:${t.title} requires [${t.requires.join(",")}] accepts [${t.accepts.join(",")}]`).join(" | ")}\nIntent: "${intent}"\nReturn JSON {process_id, fields, missing, citations, note} only one from catalog.`;
-      const aiRes: unknown = await (c.env.AI as unknown as { run: (m: string, p: unknown) => Promise<unknown> }).run?.("@cf/meta/llama-3.1-8b-instruct", { prompt });
-      void aiRes;
-    }
-  } catch { /* heuristic fallback */ }
+  // Sem heurística — golden-bridge junta os 3 provedores (Vercel / Cloudflare / local)
+// Ordem: Vercel AI Gateway (via fetch) → Cloudflare Workers AI (AI binding) → LLM local (LOCAL_LLM_URL, ex 10.88.0.10:1234 no cabo lab 512↔8GB)
+  const catalogText = CATALOG.map(t => `${t.process_id} | ${t.title} | requires=[${t.requires.join(",")}] | accepts=[${t.accepts.join(",")}] | danger=${t.danger_tier}`).join("\n");
+  const systemPrompt = `Compile the supplied intent into one registered process type and its domain fields.
 
-  // Heurística local: casa por palavras-chave + extração simples de campos
-  const lower = intent.toLowerCase();
-  const isNewType = /criar.*processo|novo tipo|cadastrar tipo|nova solicitação/i.test(intent);
-  if (isNewType) {
-    return c.json({
-      suggestion: null,
-      candidates: CATALOG.slice(0, 3).map(t => ({ process_id: t.process_id, title: t.title, fields: {}, missing: [...t.requires], citations: ["0".repeat(64)], note: "Parece que você quer cadastrar um novo tipo — use o botão Cadastrar novo tipo.", confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible })),
-      intent,
-      note: "Detectado pedido de novo tipo de processo. Preencha o formulário de tipo abaixo.",
-    });
+Catalog:
+${catalogText}
+
+Return JSON matching process_ingress.v1 exactly:
+{ process_id: string (from catalog only), fields: object (only declared keys), missing: string[], citations: string[] (64 hex), note?: string }
+
+Intent: "${intent.replace(/"/g, '\\"')}"`;
+
+  async function callVercel(): Promise<string | null> {
+    const url = (c.env.VERCEL_AI_GATEWAY_URL ?? c.env.AI_GATEWAY_URL)?.replace(/\/+$/, "");
+    const token = c.env.VERCEL_AI_GATEWAY_TOKEN ?? c.env.AI_GATEWAY_TOKEN;
+    if (!url || !token) return null;
+    try {
+      const res = await fetch(`${url}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ model: "openai/gpt-4o-mini", messages: [{ role: "user", content: systemPrompt }], temperature: 0 }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+      return j.choices?.[0]?.message?.content ?? null;
+    } catch (e) { console.error("vercel gateway failed", e); return null; }
+  }
+  async function callLocal(): Promise<string | null> {
+    const url = c.env.LOCAL_LLM_URL?.replace(/\/+$/, "");
+    if (!url) return null;
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (c.env.LOCAL_LLM_TOKEN) headers["Authorization"] = `Bearer ${c.env.LOCAL_LLM_TOKEN}`;
+      const res = await fetch(`${url}/v1/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ model: "mistral-nemo-12b", messages: [{ role: "user", content: systemPrompt }], temperature: 0, stream: false }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }>; response?: string };
+      return j.choices?.[0]?.message?.content ?? j.response ?? null;
+    } catch (e) { console.error("local llm failed", e); return null; }
   }
 
-  // scoring simples
-  const scored = CATALOG.map(t => {
-    let score = 0;
-    const titleWords = t.title.toLowerCase().split(/\W+/);
-    for (const w of titleWords) if (w.length > 2 && lower.includes(w)) score += 2;
-    if (lower.includes(t.process_id.split(".")[0])) score += 3;
-    if (t.process_id === "memory-register.v1" && /(memória|lembrar|anotar|decisão|adiar)/i.test(intent)) score += 3;
-    if (t.process_id === "inference.v1" && /(resumir|analisar|gerar|inference|modelo)/i.test(intent)) score += 3;
-    return { t, score };
-  }).sort((a,b)=>b.score-a.score);
+  try {
+    // golden-bridge: tenta Vercel → CF → local, sem heurística (comutadores em wifi, mas 10.88.0.10:1234 só via cabo 512↔8GB)
+    let text: string | null = await callVercel();
+    if (!text && c.env.AI) {
+      const ai = c.env.AI as unknown as { run: (model: string, opts: unknown) => Promise<unknown> };
+      const raw: unknown = await ai.run("@cf/meta/llama-3.1-8b-instruct", {
+        prompt: systemPrompt,
+        max_tokens: 512,
+      });
+    // Workers AI retorna { response } ou string — normaliza para JSON
+    let text = "";
+    if (typeof raw === "string") text = raw;
+    else if (raw && typeof raw === "object" && "response" in (raw as Record<string, unknown>)) text = String((raw as Record<string, unknown>).response);
+    else text = JSON.stringify(raw);
 
-  const best = scored[0]?.score ? scored[0].t : CATALOG[0];
-  // extração ingênua de campos: tenta "campo: valor" ou pega intent como descricao/this
-  const fields: Record<string,string> = {};
-  const descMatch = intent.match(/:\s*(.+)$/);
-  if (descMatch) fields.descricao = descMatch[1].slice(0, 500);
-  else if (best.accepts.includes("descricao")) fields.descricao = intent.slice(0, 500);
+    // Extrai JSON do texto (modelo pode envolver em markdown)
+    const m = text.match(/\{[\s\S]*\}/);
+    const parsed = m ? JSON.parse(m[0]) as { process_id?: string; fields?: Record<string,string>; missing?: string[]; citations?: string[]; note?: string } : null;
+    if (!parsed?.process_id || !parsed?.fields || !parsed?.citations) {
+      return c.json({ error: "LLM returned invalid process_ingress.v1 — missing required keys", code: "llm-invalid", raw: text.slice(0, 800) }, 502);
+    }
+    const entry = CATALOG.find(t => t.process_id === parsed.process_id);
+    if (!entry) return c.json({ error: `LLM chose unknown process_id ${parsed.process_id}`, code: "llm-invalid", raw: text.slice(0, 800) }, 502);
+    // Valida citations 64 hex
+    const badCite = (parsed.citations ?? []).find(h => !/^[0-9a-f]{64}$/.test(h));
+    if (badCite) return c.json({ error: `LLM citation invalid: ${badCite}`, code: "llm-invalid", raw: text.slice(0, 800) }, 502);
+    // Filtra fields para só chaves declaradas
+    const allowed = new Set([...entry.requires, ...entry.accepts]);
+    const filteredFields: Record<string,string> = {};
+    for (const [k,v] of Object.entries(parsed.fields ?? {})) if (allowed.has(k)) filteredFields[k]=String(v).slice(0,500);
 
-  const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(best.process_id)))).map(b=>b.toString(16).padStart(2,"0")).join("");
-  const suggestion = {
-    process_id: best.process_id,
-    title: best.title,
-    fields,
-    missing: [...best.requires].filter(k => !fields[k]),
-    citations: [hash],
-    note: `Entendi como ${best.title} (${best.process_id}). Confira os campos e confirme.`,
-    confidence: (scored[0]?.score ?? 0) > 2 ? "high" as const : "medium" as const,
-    runnable: best.runnable,
-    needs_approval: best.needs_approval,
-    irreversible: best.irreversible,
-  };
-  const candidates = scored.slice(1,4).map(({t}) => ({
-    process_id: t.process_id, title: t.title, fields: {}, missing: [...t.requires], citations: [hash],
-    note: `Alternativa: ${t.title}`, confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible,
-  }));
-  return c.json({ suggestion, candidates, intent });
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(entry.process_id)))).map(b=>b.toString(16).padStart(2,"0")).join("");
+    const citations = parsed.citations!.length ? parsed.citations! : [hash];
+    const suggestion = {
+      process_id: entry.process_id,
+      title: entry.title,
+      fields: filteredFields,
+      missing: [...entry.requires].filter(k => !filteredFields[k]),
+      citations,
+      note: parsed.note ?? `Entendi como ${entry.title} (${entry.process_id}).`,
+      confidence: "high" as const,
+      runnable: entry.runnable,
+      needs_approval: entry.needs_approval,
+      irreversible: entry.irreversible,
+    };
+    return c.json({ suggestion, candidates: [], intent });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return c.json({ error: `LLM call failed: ${msg.slice(0, 400)}`, code: "llm-error" }, 502);
+  }
 });
 
 app.post("/api/process-types", async (c) => {
