@@ -35,19 +35,19 @@ export default function Permissoes() {
   const [confirmText, setConfirmText] = useState("");
 
   const create = useMutation({
-    mutationFn: () => fetch(`/api/grants`, { method:"POST", headers:{ "content-type":"application/json"}, body: JSON.stringify({ process: form.process || "worker-run.v1", granted_by: form.granted_by || "admin@dm", granted_to: form.granted_to || "local@dm", valid_until: form.valid_until || new Date(Date.now()+86400000*7).toISOString(), fs_scope: form.fs_scope || "/tmp", network_policy: form.network_policy, acu_limit: parseInt(form.acu_limit||"10"), timeout_seconds: parseInt(form.timeout_seconds||"300"), adapter: form.adapter })}).then(async r=> { if(!r.ok) throw new Error(await r.text()); return r.json(); }),
+    mutationFn: () => dmApi.createGrant({ process: form.process || "worker-run.v1", granted_by: form.granted_by || "admin@dm", granted_to: form.granted_to || "local@dm", valid_until: form.valid_until || new Date(Date.now()+86400000*7).toISOString(), fs_scope: form.fs_scope || "/tmp", network_policy: form.network_policy, acu_limit: parseInt(form.acu_limit||"10"), timeout_seconds: parseInt(form.timeout_seconds||"300"), adapter: form.adapter }),
     onSuccess: ()=> { setMsg("Permissão criada — precisa ser assinada para valer."); qc.invalidateQueries({ queryKey: ["grants"] }); qc.invalidateQueries({ queryKey: ["process-types"] }); },
     onError: (e)=> setMsg(`Falha: ${(e as Error).message}`),
   });
 
   const signoff = useMutation({
-    mutationFn: (gid: string) => fetch(`/api/grants/${gid}/signoff`, { method:"POST", headers:{ "content-type":"application/json"}, body: JSON.stringify({ signer: form.granted_by || "admin@dm", credential: "demo-credential" })}).then(async r=> { if(!r.ok) throw new Error(await r.text()); return r.json(); }),
+    mutationFn: (gid: string) => dmApi.signoff(gid, { signer: form.granted_by || "admin@dm", credential: "demo-credential" }),
     onSuccess: ()=> { setMsg("Assinada."); qc.invalidateQueries({ queryKey: ["grants"] }); },
     onError: (e)=> setMsg(`Falha ao assinar: ${(e as Error).message}`),
   });
 
   const revoke = useMutation({
-    mutationFn: (gid: string) => fetch(`/api/grants/${gid}/revoke`, { method:"POST", headers:{ "content-type":"application/json"}, body: JSON.stringify({ revoked_by: form.granted_by || "admin@dm" })}).then(async r=> { if(!r.ok) throw new Error(await r.text()); return r.json(); }),
+    mutationFn: (gid: string) => dmApi.revoke(gid, { revoked_by: form.granted_by || "admin@dm" }),
     onSuccess: ()=> { setMsg("Revogada."); qc.invalidateQueries({ queryKey: ["grants"] }); },
     onError: (e)=> setMsg(`Falha ao revogar: ${(e as Error).message}`),
   });

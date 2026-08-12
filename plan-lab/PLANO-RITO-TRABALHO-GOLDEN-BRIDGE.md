@@ -19,10 +19,27 @@
 - **Túnel** `ef64804c-...` `llm.minilab.work → 127.0.0.1:8788` (`~/.cloudflared/build-256.yml`), servidor `/tmp/golden-bridge-server.py` (ou `tools/golden_bridge.py`).
 - **Comutadores em `192.168.0.0/24` via wifi**, `10.88.0.10:1234` só via cabo direto 512↔8GB — por isso o bridge precisa estar no 512 e exposto via túnel, não via `LOCAL_LLM_URL` direto do Worker.
 
-## Próximos `go` que preciso de você (1 por vez)
+## Plataforma boa — não aquilo torto e repetitivo
+
+**Diagnóstico vivo:** `ui/src/components/ui` 55 arquivos (308K) mas só 9 imports reais (`button`, `card`, `dialog`, `input`, `label`, `separator`, `sheet`, `skeleton`, `textarea`, `toast`); resto morto infla `vite build` 368kB. `toast` duplo, `not-found.tsx` morto, `Resumos.tsx` sem `useState`, `Permissoes`/`Resumos` com `fetch` cru, `index.html` `Meu Workspace`, `AppLayout` 292px torto em mobile, botões copiados 12×, `Home` sem agrupamento de modelos.
+
+**Plataforma boa = 4 leis:**
+1. **Uma linguagem** — 8 componentes `ui` só, `PrimaryButton` único, `sonner` único, sem `toast` duplicado.
+2. **Um centro** — `Conversar` com seletor agrupado `local/CF/Vercel` (já) + `model` respeitado no `POST /api/chat/compile`, sem `Novo` como rota primária.
+3. **Sem repetição** — `dmApi` único para todos `fetch`, `AppLayout` limpo com `Sidebar` + `MobileNav` sem `card` torto.
+4. **Prova viva** — cada commit `typecheck+build+test` + `curl` no bridge.
+
+**Fazer funcionando (1 commit por item):**
+1. `Resumos.tsx` + `useState`, `index.html` → `DM Lab`.
+2. `dmApi` — `advance/grants/signoff/revoke` e trocar `fetch` cru.
+3. **Prune** — apagar `toast.tsx`/`toaster.tsx`/`use-toast.ts` + 40 `ui/*.tsx` não usados (manter 9), `vite build` antes 368kB → depois <250kB.
+4. **Dedup** — `PrimaryButton` em `ui/src/components/ui/button.tsx` e trocar em 8 pages.
+5. `AppLayout` — remover `not-found.tsx`, `vite.config.ts` `allowedHosts` + `VITE_API_URL` unificado.
+6. Teste vivo final: `pytest 348 + typecheck + build + curl api/health + curl llm/v1/models`.
+
+## Próximos `go` (um por vez, com `curl` na frente)
 
 1. `go corrigir DNS` — `cloudflared tunnel route dns -f ef64804c... llm.minilab.work` (corrige `llm.min.minilab.work`).
-2. `go subir bridge` — `python3 /tmp/golden-bridge-server.py` + `curl` local.
-3. `go deploy` — `wrangler deploy` + `curl` vivo `api.carbonlab.work/api/models`.
-
-Diz `go 1` que eu só faço o 1 e mostro o `curl` antes do 2.
+2. `go subir bridge` — `python3 /tmp/golden-bridge-server.py` + `curl` local `8788`.
+3. `go UI torta` — executa 1→7 acima com `vite build` antes/depois visível.
+4. `go deploy` — `wrangler deploy` + `curl` vivo `api.carbonlab.work/api/models` do bridge.
