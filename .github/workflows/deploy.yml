@@ -52,23 +52,26 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      # alternative: DATABASE_URL
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v7
-      - name: Apply migrations (idempotent)
-        if: env.SUPABASE_DB_URL != ''
+      - name: Apply migrations via Hyperdrive (ipv6-safe, fallback to psql)
         run: |
+          echo "Trying Hyperdrive migrate via Worker (ipv6-safe)..."
+          # Worker is already deployed from previous run, try it first (Cloudflare has ipv6)
+          HTTP_CODE=$(curl -s -o /tmp/migrate.json -w "%{http_code}" -X POST https://api.carbonlab.work/api/migrate -H "x-migrate-token: ${SUPABASE_SECRET_KEY:-$SUPABASE_DB_URL}" || echo "000")
+          cat /tmp/migrate.json 2>/dev/null | head -c 500; echo " HTTP:$HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/migrate.json; then
+            echo "Hyperdrive migrate succeeded"
+            exit 0
+          fi
+          echo "Hyperdrive migrate not yet available, falling back to psql (pooler)..."
+          if [ -z "$SUPABASE_DB_URL" ]; then echo "No SUPABASE_DB_URL — skipping"; exit 0; fi
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
-          echo "Applying 0001_logline_acts.sql"
           psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0001_logline_acts.sql
-          echo "Applying 0002_realtime_publication.sql"
           psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0002_realtime_publication.sql
-          echo "Applying 0003_rls_and_search_path.sql"
           psql "${SUPABASE_DB_URL}" --set ON_ERROR_STOP=on -f migrations/0003_rls_and_search_path.sql
           psql "${SUPABASE_DB_URL}" -c "select relname, relrowsecurity from pg_class where relname='logline_acts';"
-      - name: Skip migrate (no SUPABASE_DB_URL secret)
-        if: env.SUPABASE_DB_URL == ''
-        run: echo "No SUPABASE_DB_URL secret — skipping migrate (bench-only)."
 
   deploy-api:
     name: deploy Workers api
