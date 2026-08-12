@@ -124,12 +124,22 @@ export default function Home() {
       <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-black/[0.04] px-5 dark:border-white/[0.06]">
         <h1 className="text-[17px] font-semibold tracking-[-0.015em]">Conversar</h1>
         <div className="flex items-center gap-2">
-          <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="max-w-[220px] rounded-full border bg-card px-3 py-1.5 text-[11px] font-medium">
-            {models.length === 0 ? <option>carregando modelos...</option> : models.map(m => (
-              <option key={m.id} value={m.id}>{m.id} · {m.provider}</option>
-            ))}
+          <select value={selectedModel} onChange={e => setSelectedModel(e.target.value)} className="max-w-[260px] rounded-full border bg-card px-3 py-1.5 text-[11px] font-medium">
+            {models.length === 0 ? <option>carregando modelos...</option> : (
+              <>
+                <optgroup label="Local · lab-512 (mistral.rs)">
+                  {models.filter(m => m.provider === "local").map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+                </optgroup>
+                <optgroup label="Cloudflare Workers AI">
+                  {models.filter(m => m.provider === "cloudflare").map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+                </optgroup>
+                <optgroup label="Vercel AI Gateway">
+                  {models.filter(m => m.provider === "vercel").map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
+                </optgroup>
+              </>
+            )}
           </select>
-          <span className="hidden text-[10px] text-muted-foreground md:inline">{models.length} modelos</span>
+          <span className="hidden text-[10px] text-muted-foreground md:inline">{models.filter(m => m.provider === "local").length} local · {models.filter(m => m.provider === "cloudflare").length} CF · {models.filter(m => m.provider === "vercel").length} Vercel</span>
         </div>
       </header>
 

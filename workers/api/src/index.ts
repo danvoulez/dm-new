@@ -66,30 +66,46 @@ app.get("/api/vocabulary", (c) => {
   return c.json({ count: reasons.length, reasons });
 });
 
-// Modelos expostos via API — sofisticado, OpenAI-compat, agrega Vercel/CF/local
+// Modelos expostos via API — sofisticado, agrega Vercel/CF/local com catálogos completos
+const LOCAL_CATALOG = [
+  "mistral-nemo-12b", "mistral-nemo-12b:q4", "qwen3-4b", "qwen3-4b:q4", "llama-3.2-3b", "llama-3.2-3b:q4",
+  "lfm2-1.2b", "lfm2-5-1.2b", "gemma-2-2b", "phi-3-mini",
+];
+const CF_CATALOG = [
+  "@cf/meta/llama-3.1-8b-instruct", "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/meta/llama-3.1-70b-instruct", "@cf/mistral/mistral-7b-instruct-v0.1",
+  "@cf/google/gemma-7b-it", "@cf/qwen/qwen1.5-14b-chat-awq", "@cf/openchat/openchat-3.5-0106", "@cf/tii/falcon-7b-instruct",
+  "@cf/nous-hermes-2-yi-34b", "@cf/thebloke/discolm-german-7b-v1-awq",
+];
+const VERCEL_CATALOG = [
+  "openai/gpt-4o-mini", "openai/gpt-4o", "openai/gpt-4-turbo", "anthropic/claude-3.5-sonnet", "anthropic/claude-3-haiku",
+  "google/gemini-1.5-pro", "google/gemini-1.5-flash", "mistral/mistral-large", "cohere/command-r-plus",
+];
+
 app.get("/api/models", async (c) => {
   const models: Array<{ id: string; provider: string; object: string; owned_by: string }> = [];
-  // Local mistral.rs (lab 512) — tenta direto
+  const seen = new Set<string>();
+  const push = (id: string, provider: string, owned_by: string) => { if (!seen.has(id)) { seen.add(id); models.push({ id, provider, object: "model", owned_by }); } };
+
+  // Local mistral.rs (lab 512) — tenta vivo primeiro, senão catálogo estático completo
+  let localAlive = false;
   const localUrl = c.env.LOCAL_LLM_URL?.replace(/\/+$/, "");
   if (localUrl) {
     try {
       const r = await fetch(`${localUrl}/v1/models`, { headers: c.env.LOCAL_LLM_TOKEN ? { Authorization: `Bearer ${c.env.LOCAL_LLM_TOKEN}` } : {} });
       if (r.ok) {
         const j = await r.json() as { data?: Array<{ id: string }> };
-        for (const m of j.data ?? []) models.push({ id: m.id, provider: "local", object: "model", owned_by: "lab-512" });
+        for (const m of j.data ?? []) push(m.id, "local", "lab-512");
+        localAlive = (j.data?.length ?? 0) > 0;
       }
     } catch {}
   }
-  // Fallback local conhecido (quando cabo 512↔8GB isolado)
-  if (models.length === 0) {
-    for (const id of ["mistral-nemo-12b", "qwen3-4b", "llama-3.2-3b", "lfm2-5-1.2b"]) {
-      models.push({ id, provider: "local", object: "model", owned_by: "lab-512" });
-    }
-  }
-  // Cloudflare Workers AI (via AI binding — lista fixa, Gateway expõe caps)
-  models.push({ id: "@cf/meta/llama-3.1-8b-instruct", provider: "cloudflare", object: "model", owned_by: "cloudflare" });
-  models.push({ id: "@cf/mistral/mistral-7b-instruct-v0.1", provider: "cloudflare", object: "model", owned_by: "cloudflare" });
-  // Vercel AI Gateway — lista dinâmica se configurado
+  if (!localAlive) for (const id of LOCAL_CATALOG) push(id, "local", "lab-512");
+
+  // Cloudflare Workers AI — via AI binding, Gateway expõe caps mas lista é conhecida
+  for (const id of CF_CATALOG) push(id, "cloudflare", "cloudflare");
+
+  // Vercel AI Gateway — tenta dinâmico, senão catálogo completo
+  let vercelAlive = false;
   const vUrl = (c.env.VERCEL_AI_GATEWAY_URL ?? c.env.AI_GATEWAY_URL)?.replace(/\/+$/, "");
   const vTok = c.env.VERCEL_AI_GATEWAY_TOKEN ?? c.env.AI_GATEWAY_TOKEN;
   if (vUrl && vTok) {
@@ -97,12 +113,13 @@ app.get("/api/models", async (c) => {
       const r = await fetch(`${vUrl}/v1/models`, { headers: { Authorization: `Bearer ${vTok}` } });
       if (r.ok) {
         const j = await r.json() as { data?: Array<{ id: string }> };
-        for (const m of j.data ?? []) if (!models.find(x => x.id === m.id)) models.push({ id: m.id, provider: "vercel", object: "model", owned_by: "vercel" });
+        for (const m of j.data ?? []) push(m.id, "vercel", "vercel");
+        vercelAlive = (j.data?.length ?? 0) > 0;
       }
     } catch {}
-  } else {
-    for (const id of ["openai/gpt-4o-mini", "anthropic/claude-3.5-sonnet"]) models.push({ id, provider: "vercel", object: "model", owned_by: "vercel" });
   }
+  if (!vercelAlive) for (const id of VERCEL_CATALOG) push(id, "vercel", "vercel");
+
   return c.json({ object: "list", data: models });
 });
 app.get("/v1/models", async (c) => {
