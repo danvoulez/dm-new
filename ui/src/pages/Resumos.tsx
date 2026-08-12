@@ -8,7 +8,7 @@ export default function Resumos() {
   const [msg, setMsg] = useState<string|null>(null);
 
   const rebuild = useMutation({
-    mutationFn: () => fetch(`/api/advance`, { method:"POST", headers:{ "content-type":"application/json"}, body: JSON.stringify({ worker:"ui-rebuild"})}).then(async r=> { if(!r.ok) throw new Error(await r.text()); return r.json(); }),
+    mutationFn: () => fetch(`${(import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, "") ?? ""}/api/advance`, { method:"POST", headers:{ "content-type":"application/json"}, body: JSON.stringify({ worker:"ui-rebuild"})}).then(async r=> { if(!r.ok) throw new Error(await r.text()); return r.json(); }),
     onSuccess: (d)=> { setMsg((d as { ran?: boolean; note?: string }).ran ? "Avançou um passo na fila." : (d as { note?: string }).note ?? "Nada na fila."); qc.invalidateQueries({ queryKey: ["projections"] }); qc.invalidateQueries({ queryKey: ["now"] }); qc.invalidateQueries({ queryKey: ["pendencies"] }); },
     onError: (e)=> setMsg(`Falha: ${(e as Error).message}`),
   });

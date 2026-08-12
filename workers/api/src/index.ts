@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { Client } from "pg";
 import { cors } from "hono/cors";
 
 type Env = {
@@ -120,24 +121,41 @@ app.post("/api/register", async (c) => {
   // Permanent: INSERT INTO public.logline_acts (content_hash, tuple_hash, receipt_version, act) VALUES (...) ON CONFLICT DO NOTHING
   // using content-addressed id = sha256(canonical_json(receipt)). Triggers enforce append-only even for service_role.
   // Then evaluate + receiver_select as in lab/api.py:register. Never fuse "registered" and "activated".
-  // Try Hyperdrive insert; fall back to stub if DB not yet migrated or secret missing (bench fallback).
+  // Real insert via Hyperdrive (service_role) — falls back to stub if table not yet migrated or pooler not reachable.
   let inserted = false;
   let hash = "0".repeat(64);
+  let insertError: string | null = null;
   try {
-    const conn = pgConn(c);
-    if (conn) {
-      // Minimal canonical hash: sha256(canonical_json) — full impl in lab/receipt.py (RFC8785). Here we hash the who+act for idempotence check.
+    const connStr = pgConn(c);
+    if (connStr) {
       const bodyStr = JSON.stringify(body);
       const enc = new TextEncoder().encode(bodyStr);
       const buf = await crypto.subtle.digest("SHA-256", enc);
-      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-      hash = hex;
-      // In production: await query(conn, "INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING", [hash, hash, "logline.receipt.v0", body]);
-      inserted = !!conn; // optimistic — real insert happens when migrations applied and hyperdrive has service_role
+      hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+      // Use pg via Hyperdrive — note Workers needs nodejs_compat (already enabled)
+      const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
+      try {
+        await client.connect();
+        // Ensure receipt_version is set, compute tuple_hash as same as content_hash for minimal stub (real uses canonical_json + hashes)
+        const act = { ...body, id: hash, receipt_version: "logline.receipt.v0", hashes: { tuple_hash: hash } } as Record<string, unknown>;
+        await client.query(
+          "INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
+          [hash, hash, "logline.receipt.v0", JSON.stringify(act)]
+        );
+        inserted = true;
+      } catch (e: unknown) {
+        insertError = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300);
+        // PGRST205 (table missing) or network → fallback to stub, but surface error in prod logs
+        console.error("register insert failed", insertError);
+      } finally {
+        try { await (client as unknown as { end: () => Promise<void> }).end(); } catch {}
+      }
     }
-  } catch { /* keep stub */ }
-  void inserted;
-  return c.json({ registered: true, id: hash, fingerprint: fingerprint(hash), activated: false, waiting: { message: inserted ? "Registrado. Pendente." : "Registrado. Pendente (DB wiring fallback — stub).", action: "Ver caso" } }, 200);
+  } catch (e) { insertError = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300); }
+  if (!inserted && insertError && insertError.includes("does not exist")) {
+    return c.json({ registered: true, id: hash, fingerprint: fingerprint(hash), activated: false, waiting: { message: "Registrado (DB ainda não migrado — stub).", action: "Ver caso" }, warning: insertError }, 200);
+  }
+  return c.json({ registered: true, id: hash, fingerprint: fingerprint(hash), activated: false, waiting: { message: inserted ? "Registrado. Pendente." : "Registrado. Pendente (DB wiring fallback — stub).", action: "Ver caso" }, ...(insertError ? { warning: insertError } : {}) }, 200);
 });
 
 app.post("/api/advance", async (c) => c.json({ ran: false, note: "nada na fila (stub — wire to executor_run_once via Hyperdrive)" }));
@@ -150,10 +168,17 @@ app.post("/api/grants/:gid/revoke", async (c) => c.json({ error: "wire to revoke
 export default {
   fetch: app.fetch,
   async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
-    // Permanent SQL (via Hyperdrive): SELECT * from clock_select_due() or queue tail
-    // This is the fallback when the bell drops — queue_rebuild_due replays from ledger.
-    // Keep it idempotent; log to Tail/Observability.
-    // Example: const sql = env.HYPERDRIVE.connectionString; await query(sql, "SELECT clock_select_due()");
-    void env;
+    // Cron * * * * * — Hyperdrive-backed fallback when bell drops
+    try {
+      const connStr = (env.HYPERDRIVE as unknown as { connectionString: string })?.connectionString;
+      if (!connStr) return;
+      const { Client } = await import("pg");
+      const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
+      await client.connect();
+      try {
+        // Idempotent: queue_rebuild_due replays from ledger; clock_select_due wakes due timers
+        await client.query("SELECT 1"); // replace with SELECT clock_select_due() / queue_rebuild_due when functions exist
+      } finally { await client.end().catch(()=>{}); }
+    } catch (e) { console.error("scheduled cron failed", e); }
   },
 } as ExportedHandler<Env>;
