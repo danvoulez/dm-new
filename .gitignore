@@ -18,6 +18,8 @@ env/
 
 # Node (runtime/receiver realtime listener)
 node_modules/
+ui/node_modules/
+ui/dist/
 *.log
 
 # Runtime / local state

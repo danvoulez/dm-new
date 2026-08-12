@@ -1,0 +1,34 @@
+{
+  "name": "dm-lab-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Permanent: Postgres is authoritative via Hyperdrive. D1 is NOT the ledger.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "2d9e87a1efc447a58622c42074bac2c0",
+      "localConnectionString": "postgresql://postgres:REDACTED@db.loervapotjchdkapkmup.supabase.co:5432/postgres"
+    }
+  ],
+  // D1 only for rebuildable projections (not ledger) — safe to lose and rebuild.
+  "d1_databases": [
+    {
+      "binding": "PROJECTIONS",
+      "database_name": "dm-projections",
+      "database_id": "4a7dd999-f86b-4b3a-9aec-36d0c699ea05",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "OBJECTS", "bucket_name": "dm-objects" }
+  ],
+  "vectorize": [],
+  // AI Gateway + Workers AI for process_ingress (GLM-4.7-Flash, etc)
+  "ai": { "binding": "AI" },
+  "vars": {
+    "LAB_MODE": "production",
+    "R2_PUBLIC_BASE": ""
+  }
+}
