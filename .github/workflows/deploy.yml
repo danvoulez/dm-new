@@ -86,7 +86,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler deploy --env production
+        run: npx wrangler deploy
 
   deploy-ui:
     name: deploy Pages (ui)
@@ -100,9 +100,14 @@ jobs:
       - working-directory: ui
         run: |
           npm ci
-          npm run build
+          VITE_API_URL=https://api.carbonlab.work npm run build
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --prefix ui wrangler pages deploy ui/dist/public --project-name dm-lab-ui
+      - name: Deploy UI Worker (app.carbonlab.work)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy --config workers/ui/wrangler.jsonc

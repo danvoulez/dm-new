@@ -1,0 +1,9 @@
+{
+  "name": "dm-lab-ui-worker",
+  "compatibility_date": "2025-08-01",
+  "assets": {
+    "directory": "../../ui/dist/public",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": { "enabled": true }
+}

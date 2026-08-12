@@ -4,12 +4,14 @@
   "compatibility_date": "2025-08-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  "triggers": { "crons": ["* * * * *"] },
+  // Custom domains (Workers): api.carbonlab.work → dm-lab-api, lab/docs/r2 → dm-lab-api, app → dm-lab-ui-worker (UI)
   // Permanent: Postgres is authoritative via Hyperdrive. D1 is NOT the ledger.
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
       "id": "2d9e87a1efc447a58622c42074bac2c0",
-      "localConnectionString": "postgresql://postgres:REDACTED@db.loervapotjchdkapkmup.supabase.co:5432/postgres"
+      "localConnectionString": "postgresql://postgres:REDACTED@db.loervapotjchdkapkmup.supabase.co:5432/postgres?sslmode=require"
     }
   ],
   // D1 only for rebuildable projections (not ledger) — safe to lose and rebuild.
@@ -25,7 +27,7 @@
     { "binding": "OBJECTS", "bucket_name": "dm-objects" }
   ],
   "vectorize": [],
-  // AI Gateway + Workers AI for process_ingress (GLM-4.7-Flash, etc)
+  // Workers AI for inference.v1 (GLM-4.7-Flash via AI Gateway dollar caps)
   "ai": { "binding": "AI" },
   "vars": {
     "LAB_MODE": "production",
