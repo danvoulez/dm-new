@@ -1,0 +1,55 @@
+{
+  "vector": "workflow-next-sent_to-is-deterministic",
+  "expect": "valid",
+  "tests": [
+    "law 15"
+  ],
+  "reason": "The next sent_to is READ from the workflow step (from_sent_to=card-table, outcome=ok -> next_if_ok=gate-intake). Routing is deterministic: not improvised by a runtime, not chosen by an LLM.",
+  "workflow": {
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "steps": [
+      {
+        "name": "draft_candidate",
+        "accepts_template": "2222222222222222222222222222222222222222222222222222222222222222",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+        "qualifier": "0",
+        "runtime": "0",
+        "from_sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "next_if_ok": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "next_if_doubt": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "next_if_not": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      }
+    ]
+  },
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "played",
+    "this": "a card played at the card-table, judged ok",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  },
+  "routing": {
+    "from_sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "outcome": "ok",
+    "expected_next_sent_to": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dream Machine Atomic Claim",
+  "type": "object",
+  "required": ["claim_id", "subject", "predicate", "object", "modality", "confidence", "source_chunks"],
+  "properties": {
+    "claim_id": {"type": "string"},
+    "subject": {"type": "string"},
+    "predicate": {"type": "string"},
+    "object": {"type": "string"},
+    "scope": {"type": "string"},
+    "modality": {
+      "description": "Epistemic stance of the SOURCE text (what kind of statement it is).",
+      "type": "string",
+      "enum": ["implemented", "planned", "forbidden", "claimed", "observed", "unknown"]
+    },
+    "verification_status": {
+      "description": "Verdict after checking the claim against evidence (Drift Auditor). Absent until drift runs.",
+      "type": "string",
+      "enum": ["verified", "partially_verified", "planned_only", "stale", "false", "unknown"]
+    },
+    "time_scope": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "source_chunks": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^(chunk|artifact|source):"},
+      "minItems": 1
+    },
+    "notes": {"type": "string"}
+  },
+  "additionalProperties": false
+}

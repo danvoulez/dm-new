@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dream Machine Source Manifest",
+  "type": "object",
+  "required": ["source_id", "kind", "discovered_at", "semantic_status"],
+  "properties": {
+    "source_id": {"type": "string"},
+    "kind": {"type": "string", "enum": ["repo", "folder", "chat_export", "drive_export", "screenshot_set", "log_bundle", "database_schema", "unknown"]},
+    "uri": {"type": "string"},
+    "root_path": {"type": "string"},
+    "discovered_at": {"type": "string"},
+    "source_sha256": {"type": "string"},
+    "custody_status": {"type": "string"},
+    "semantic_status": {"type": "string", "enum": ["not_truth", "registered_by_act", "unknown"]},
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}

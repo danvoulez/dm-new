@@ -1,0 +1,9 @@
+service_name: receiver-selector
+machine: lab-8gb
+binary: /Lab/bin/lab
+env_file: /Lab/env/receiver.env
+logs: /Lab/logs/receiver.log
+restart_policy: launchd
+purpose: selector for addressed ledger rows
+allowed_process_classes: [content, envelope]
+health_check: lab receiver status

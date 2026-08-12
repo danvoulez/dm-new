@@ -1,0 +1,10 @@
+{
+  "_why_invalid": "AT3 / INV-3: source_chunks is empty. Validation MUST reject (minItems 1).",
+  "claim_id": "claim:0000000000000000000000000000dead",
+  "subject": "PostgresActCas",
+  "predicate": "implementation_status",
+  "object": "fully implemented",
+  "modality": "claimed",
+  "confidence": 0.9,
+  "source_chunks": []
+}

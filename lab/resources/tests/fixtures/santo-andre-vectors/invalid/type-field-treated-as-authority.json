@@ -1,0 +1,40 @@
+{
+  "vector": "type-field-treated-as-authority",
+  "expect": "invalid",
+  "tests": [
+    "law 8"
+  ],
+  "reason": "An inert 'type' in free AUX is allowed, but kind must DERIVE from template/workflow/policy/qualifier/runtime/run/sent_to. Here the Act is a 'card' only by its type field (no card template/workflow); treating type as authority is refused.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "noted",
+    "this": "a note that claims to be a card only via a type field",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "0",
+    "workflow": "0",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0",
+    "type": "card"
+  },
+  "derivation": {
+    "kind_from_wiring": "note",
+    "kind_from_type_field": "card",
+    "note": "a conformant checker derives 'note' and refuses type-as-authority"
+  }
+}

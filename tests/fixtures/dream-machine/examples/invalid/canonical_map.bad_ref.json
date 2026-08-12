@@ -1,0 +1,14 @@
+{
+  "_why_invalid": "AT13 / INV-4: a primary_source ref does not match the IDS.md ref grammar (missing type:prefix). And INV-5: status 'canonical' with no act: source.",
+  "topic": "ActGraph admission gate",
+  "generated_at": "2026-06-13T11:00:00Z",
+  "canonicality": {
+    "status": "canonical",
+    "confidence": 0.95,
+    "primary_sources": ["deadbeefnochunkprefix"]
+  },
+  "evidence": [],
+  "contradictions": [],
+  "unknowns": [],
+  "recommended_action": "none"
+}

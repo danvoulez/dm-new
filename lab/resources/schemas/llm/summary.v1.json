@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["summary", "citations"],
+  "additionalProperties": true,
+  "properties": {
+    "summary": {"type": "string", "minLength": 1},
+    "citations": {"type": "array", "items": {"type": "string"}},
+    "requested_action": {"type": "string"}
+  }
+}

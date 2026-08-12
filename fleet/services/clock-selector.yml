@@ -1,0 +1,9 @@
+service_name: clock-selector
+machine: lab-8gb
+binary: /Lab/bin/lab
+env_file: /Lab/env/clock.env
+logs: /Lab/logs/clock.log
+restart_policy: launchd
+purpose: selector for due scheduled records
+allowed_process_classes: [content, envelope]
+health_check: lab clock now

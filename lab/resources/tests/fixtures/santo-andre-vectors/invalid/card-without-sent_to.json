@@ -1,0 +1,34 @@
+{
+  "vector": "card-without-sent_to",
+  "expect": "invalid",
+  "tests": [
+    "law 4",
+    "law 7"
+  ],
+  "reason": "A played card must carry transport.sent_to. With no destination, routing would be inferred \u2014 forbidden ('no the LLM will know').",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "act": {
+    "who": "dan",
+    "did": "played",
+    "this": "a card played with no destination on the envelope",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  }
+}

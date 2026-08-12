@@ -1,0 +1,13 @@
+{
+  "question": "Which ActGraph gate design is canonical?",
+  "answer": "The likely canonical design is the single admission path through ActGraph gate. However, this is a canonicality projection unless backed by an admitted Act pointer in the current ledger.",
+  "confidence": 0.78,
+  "evidence": [
+    {"ref": "chunk:example1", "summary": "Formal foundations define single admit path."},
+    {"ref": "chunk:example2", "summary": "Litmus says consequence must become Act."}
+  ],
+  "contradictions": [],
+  "unknowns": ["Current live ledger pointer not checked in this example."],
+  "actions": ["Query admitted Acts for gate constitution pointer."],
+  "candidate_artifacts": []
+}

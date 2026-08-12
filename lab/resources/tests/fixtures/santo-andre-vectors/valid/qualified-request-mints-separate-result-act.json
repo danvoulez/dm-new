@@ -1,0 +1,62 @@
+{
+  "vector": "qualified-request-mints-separate-result-act",
+  "expect": "valid",
+  "tests": [
+    "law 12",
+    "law 14"
+  ],
+  "reason": "A qualified run mints a SEPARATE result Act citing the request; request has run=0, result has run=hash, different content_hash; the request is never mutated.",
+  "envelope": {
+    "transport": {
+      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sent_at": "2026-06-15T03:00:00Z",
+      "channel": "pack-vector"
+    }
+  },
+  "acts": [
+    {
+      "role": "request",
+      "act": {
+        "who": "dan",
+        "did": "requested",
+        "this": "a qualified pre-ghost detection run",
+        "when": "2026-06-15T03:00:00Z",
+        "confirmed_by": "pack-vector",
+        "if_ok": "proceed",
+        "if_doubt": "open a ghost",
+        "if_not": "refuse",
+        "status": "candidate",
+        "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+        "template": "2222222222222222222222222222222222222222222222222222222222222222",
+        "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+        "qualifier": "5555555555555555555555555555555555555555555555555555555555555555",
+        "runtime": "6666666666666666666666666666666666666666666666666666666666666666",
+        "run": "0"
+      }
+    },
+    {
+      "role": "result",
+      "act": {
+        "who": "runtime",
+        "did": "reported",
+        "this": "the qualified pre-ghost detector run completed",
+        "when": "2026-06-15T03:00:00Z",
+        "confirmed_by": "pack-vector",
+        "if_ok": "proceed",
+        "if_doubt": "open a ghost",
+        "if_not": "refuse",
+        "status": "candidate",
+        "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+        "template": "2222222222222222222222222222222222222222222222222222222222222222",
+        "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+        "qualifier": "5555555555555555555555555555555555555555555555555555555555555555",
+        "runtime": "6666666666666666666666666666666666666666666666666666666666666666",
+        "run": "8888888888888888888888888888888888888888888888888888888888888888",
+        "request": "9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    }
+  ]
+}

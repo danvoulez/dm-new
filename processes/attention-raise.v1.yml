@@ -1,0 +1,9 @@
+process_id: attention-raise.v1
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+adapters: []
+evidence_obligation: separate-result-act
+doubt_path: attention-raise.v1

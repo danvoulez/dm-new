@@ -1,0 +1,8 @@
+resident_services:
+  - receiver-selector
+  - clock-selector
+  - queue-projection
+  - executor-dispatcher
+  - projection-rebuilder
+  - workbench
+  - approved-maintenance

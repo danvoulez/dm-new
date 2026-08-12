@@ -1,0 +1,12 @@
+process_id: inference.v1
+status: active
+organ: law
+activation:
+  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
+  must_include: []
+authority_scope: []
+adapters: [inference]
+danger_tier: L3
+evidence_obligation: separate-result-act
+evidence_must_include: [output_hash, schema_hash]
+doubt_path: attention-raise.v1

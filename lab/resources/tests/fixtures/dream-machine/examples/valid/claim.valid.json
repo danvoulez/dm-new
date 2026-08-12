@@ -1,0 +1,13 @@
+{
+  "claim_id": "claim:9f2c1ab07e554d3b8a61c0f4d2e7b3a1",
+  "subject": "PostgresActCas",
+  "predicate": "implementation_status",
+  "object": "not implemented in Rust backend; only FileActCas and InMemoryActCas exist",
+  "scope": "actgraph/cas",
+  "modality": "observed",
+  "verification_status": "verified",
+  "time_scope": "2026-06",
+  "confidence": 0.83,
+  "source_chunks": ["chunk:1c0f4d2e7b3a19f2c1ab07e554d3b8a6"],
+  "notes": "Observed from repo file listing, not from a doc claim."
+}

@@ -1,0 +1,49 @@
+process_id: example.v1
+title: Example Process
+status: active
+kind: process
+version: 1
+owner: lab
+process_class: effect
+organ: law
+wakes: []
+requires_infra: []
+composable: false
+requires_target_hash: false
+idempotency: none
+evidence_required: false
+activation_ritual:
+  required_slots:
+    who: who.authorized
+    did: did.canonical
+    this: this.canonical
+    when: when.registered_at
+    confirmed_by: confirmed_by.evidence_hash
+    if_ok: if_ok.compatible
+    if_doubt: if_doubt.compatible
+    if_not: if_not.compatible
+    status: status.registered
+  required_aux: []
+  optional_aux: []
+authority_scope:
+  allowed_who: []
+  required_grants: []
+adapter:
+  name: ""
+  danger_tier: L0
+budget_policy:
+  acu_limit: 0
+  timeout_seconds: 0
+  rate_limit: none
+evidence_obligation:
+  required: false
+  must_include: []
+closure_shape:
+  success_status: fechado
+  doubt_status: doubted
+  ghost_status: ghost
+if_doubt:
+  behavior: attention_raise
+runtime_readiness:
+  checks: []
+doubt_path: attention-raise.v1
