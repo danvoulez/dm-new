@@ -63,7 +63,7 @@ app.get("/api/vocabulary", (c) => {
 
 // Modelos expostos via API — só golden-bridge, fetch tudo da API, zero hardcode, zero chave
 app.get("/api/models", async (c) => {
-  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.minilab.work").replace(/\/+$/, "");
+  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.carbonlab.work").replace(/\/+$/, "");
   try {
     const r = await fetch(`${base}/v1/models`);
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
@@ -203,7 +203,7 @@ app.post("/api/chat/compile", async (c) => {
   const requestedModel = body?.model?.trim();
   if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
 
-  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.minilab.work").replace(/\/+$/, "");
+  const base = (c.env.GOLDEN_BRIDGE_URL ?? "https://llm.carbonlab.work").replace(/\/+$/, "");
   // Delega tudo ao golden-bridge (lab 512): ele junta Vercel/CF/local internamente
   try {
     const r = await fetch(`${base}/v1/chat/compile`, {
