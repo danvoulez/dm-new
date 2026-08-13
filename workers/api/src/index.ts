@@ -1,17 +1,29 @@
-import { Hono } from "hono";
-import { Client } from "pg";
+import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
+import { CATALOG } from "./vocabulary";
+import { appendAct, withClient } from "./db";
+import { loadContracts, toProcessTypeView } from "./contracts";
+import { evaluate } from "./evaluator";
+import { RegisterActivationError, registerFlow, registerResponse } from "./register-flow";
+import { candidatesView, caseView, executorRunOnce, nowView, pendenciesView, processesView, receiverSelect, resumeGrantSources } from "./runtime";
+import { canGenericRegisterDid } from "./control-plane";
+import { runChatTurn } from "./chat";
+import { authorityRecognized, getGrantStanding, listGrants, registerGrant, revokeGrant, validateGrantInput, type GrantInput } from "./grants";
+import { SEED_CONTRACTS } from "./seed-contracts";
+import { createEnrollmentOptions, createSignOptions, verifyEnrollment, verifyGrantSignoff } from "./webauthn";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 
-type Env = {
+export type Env = {
   HYPERDRIVE: Hyperdrive;
   PROJECTIONS: D1Database;
   OBJECTS: R2Bucket;
   AI: Ai;
   LAB_MODE: string;
-  // único provedor: golden-bridge no LAB 8GB (~/lab-mistral-rs-gateway, porta 8787),
-  // que roteia pelo cabo /30 até mistral.rs no LAB 512 (10.88.0.10:1234) e unifica
-  // os gateways externos. Exposto pelo túnel canônico da 8GB em inference.minilab.work,
-  // atrás de Cloudflare Access — daí o service token. Nenhuma chave de LLM vive aqui.
+  MIGRATE_TOKEN?: string;
+  GENESIS_AUTHORITY?: string;
+  WEBAUTHN_RP_ID?: string;
+  WEBAUTHN_ORIGIN?: string;
+  WEBAUTHN_RP_NAME?: string;
   GOLDEN_BRIDGE_URL?: string;
   GOLDEN_BRIDGE_ACCESS_ID?: string;
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
@@ -20,24 +32,17 @@ type Env = {
 
 const BRIDGE_DEFAULT = "https://inference.minilab.work";
 
-// Um fetch de Worker para um hostname da própria conta não sai pelo edge, então não
-// encontra a rota do túnel — cai num origin legado (hoje um projeto morto na Vercel).
-// O caminho suportado de Worker para Cloudflare Tunnel é <tunnel-uuid>.cfargotunnel.com
-// com o Host original, que o cloudflared usa para casar o ingress. Se o túnel não estiver
-// configurado, tenta o hostname público com o service token de Access.
 async function bridgeFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
   const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
   const host = new URL(publicBase).host;
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init.headers as Record<string, string> | undefined) };
-
   if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
-    const r = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
+    const response = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
       ...init,
       headers: { ...headers, Host: host },
     });
-    if (r.ok) return r;
+    if (response.ok) return response;
   }
-
   if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
     headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
     headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
@@ -60,124 +65,156 @@ app.use("*", cors({
   origin: (origin) => {
     if (!origin) return origin;
     if (ALLOWED_ORIGINS.includes(origin)) return origin;
-    // Allow any *.carbonlab.work for pattern
     if (/^https:\/\/[^.]+\.carbonlab\.work$/.test(origin)) return origin;
     return "";
   },
   allowMethods: ["GET", "POST", "OPTIONS"],
-  allowHeaders: ["Content-Type", "Authorization"],
+  allowHeaders: ["Content-Type", "Authorization", "X-Migrate-Token"],
   credentials: false,
 }));
 
-// Health — never touches ledger, safe for probes.
-app.get("/api/health", async (c) => {
-  // Hyperdrive connection is lazy; we just report bindings present.
-  return c.json({ ok: true, mode: c.env.LAB_MODE ?? "production", ledger: "public.logline_acts@postgres via Hyperdrive", projections: "D1@dm-projections", rls: "enabled, no policies — service_role via Hyperdrive only" });
-});
-
-// Proxy remaining reads to Postgres via Hyperdrive (service_role). RLS ON no policies means anon gets nothing — this Worker IS the membrane.
-function pgConn(c: { env: Env }) {
-  // Hyperdrive exposes connectionString. In prod Wrangler injects it; locally use localConnectionString.
-  const connString: string = (c.env.HYPERDRIVE as unknown as { connectionString: string })?.connectionString;
-  return connString;
+function fingerprint(hash: string | null | undefined) {
+  return hash ? hash.slice(0, 8) : null;
 }
 
-// Minimal SQL helper — in production replace with `postgres` or `pg` via Hyperdrive.
-// For now we return the shape the UI expects and document the SQL that must run server-side.
-function fingerprint(hash: string | null | undefined) { return hash ? hash.slice(0, 8) : null; }
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
-// Vocabulary is closed and versioned from lab/messages.py — serve static catalog (no DB hit) so UI needs no release when a reason is added.
-import { CATALOG } from "./vocabulary";
+function dbFailure(error: unknown) {
+  const message = errorText(error);
+  const notMigrated = /process_contracts|runtime_queue|logline_acts/.test(message) && /does not exist|undefined table/i.test(message);
+  return {
+    error: notMigrated ? "database schema is not migrated" : "database unavailable",
+    code: notMigrated ? "not_migrated" : "database_unavailable",
+    detail: message.slice(0, 300),
+  };
+}
+
+app.get("/api/health", async (c) => {
+  try {
+    const state = await withClient(c.env, async (client) => {
+      const result = await client.query<{ acts: string; process_types: string }>(
+        `SELECT
+          (SELECT count(*)::text FROM public.logline_acts) AS acts,
+          (SELECT count(*)::text FROM public.process_contracts) AS process_types`,
+      );
+      return result.rows[0];
+    });
+    return c.json({
+      ok: true,
+      mode: c.env.LAB_MODE ?? "production",
+      ledger: "public.logline_acts@postgres via Hyperdrive",
+      projections: "D1@dm-projections",
+      acts: Number(state?.acts ?? 0),
+      process_types: Number(state?.process_types ?? 0),
+      rls: "enabled, no policies - service role membrane",
+    });
+  } catch (error) {
+    return c.json({ ok: false, ...dbFailure(error) }, 503);
+  }
+});
 
 app.get("/api/vocabulary", (c) => {
   const reasons = Object.entries(CATALOG).map(([code, [template, action, resolved_by]]) => ({ code, template, action, resolved_by }));
   return c.json({ count: reasons.length, reasons });
 });
 
-// Modelos expostos via API — só golden-bridge, fetch tudo da API, zero hardcode, zero chave
 app.get("/api/models", async (c) => {
   try {
-    const r = await bridgeFetch(c.env, "/v1/models");
-    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-    const j = await r.json() as { data?: unknown[]; object?: string };
-    // golden-bridge já retorna {object:"list", data:[{id,provider,owned_by}]}
-    return c.json(j);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ object: "list", data: [], error: `golden-bridge unavailable: ${msg.slice(0, 200)}` }, 502);
+    const response = await bridgeFetch(c.env, "/v1/models");
+    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+    return c.json(await response.json());
+  } catch (error) {
+    return c.json({ object: "list", data: [], error: `golden-bridge unavailable: ${errorText(error).slice(0, 200)}` }, 502);
   }
 });
+
 app.get("/v1/models", async (c) => {
-  // alias OpenAI-compat para UI direta
-  const res = await app.request("/api/models", {}, c.env as unknown as Record<string, string>);
-  const j = await res.json() as { data: unknown[] };
-  return c.json({ object: "list", data: j.data });
+  try {
+    const response = await bridgeFetch(c.env, "/v1/models");
+    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+    const body = await response.json() as { data?: unknown[] };
+    return c.json({ object: "list", data: body.data ?? [] });
+  } catch (error) {
+    return c.json({ object: "list", data: [], error: errorText(error).slice(0, 200) }, 502);
+  }
 });
 
 app.get("/api/process-types", async (c) => {
-  // In permanent deploy this queries Postgres: SELECT * FROM process catalog (or from config table).
-  // Stub returns runnable set so UI's contract-driven form still renders during wiring.
-  // Replace stub with actual SQL via Hyperdrive when DB is live.
-  return c.json({
-    count: 11,
-    types: [
-      { process_id: "inference.v1", title: "Inference", requires: [], accepts: [], required_slots: ["who","did","this","when","confirmed_by","if_ok","if_doubt","if_not","status"], adapter: "inference", danger_tier: "L3", needs_approval: true, irreversible: false, runnable: true, readiness: "runnable", readiness_reason: "", evidence_must_include: ["output_hash","schema_hash"] },
-      { process_id: "memory-register.v1", title: "Memória", requires: [], accepts: ["descricao"], required_slots: ["who","did","this"], adapter: "receipt", danger_tier: "L0", needs_approval: false, irreversible: false, runnable: true, readiness: "runnable", readiness_reason: "", evidence_must_include: [] },
-      { process_id: "worker-run.v1", title: "Worker run", requires: [], accepts: [], required_slots: ["who","did","this","when"], adapter: "worker_run", danger_tier: "L4", needs_approval: true, irreversible: false, runnable: false, readiness: "contract-only", readiness_reason: "no adapter configured in bench" },
-    ],
-  });
+  try {
+    const types = await withClient(c.env, async (client) => Array.from((await loadContracts(client)).values()).map(toProcessTypeView));
+    return c.json({ count: types.length, types });
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
 });
 
 app.get("/api/now", async (c) => {
-  // Permanent SQL (via Hyperdrive, service_role):
-  // SELECT * FROM public.logline_acts WHERE did IN ('doubt','not_dispatched',...) ORDER BY inserted_at DESC LIMIT 20
-  // plus queued/fechado partitions. D1 not involved — this is Postgres authoritative.
-  // Stub empty so UI shows "Nada pendente com você" until DB is connected.
-  return c.json({ needs_you: [], needs_operator: [], moving: [], closed_today: [] });
+  try {
+    return c.json(await withClient(c.env, (client) => nowView(client)));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.get("/api/processes", async (c) => {
+  try {
+    return c.json(await withClient(c.env, (client) => processesView(client)));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
 });
 
 app.get("/api/pendencies", async (c) => {
-  const resolved_by = c.req.query("resolved_by");
-  // SQL: SELECT act FROM public.logline_acts WHERE act->>'did' IN (...) AND ... LIMIT 50
-  // Filter by resolved_by in Worker (CATALOG resolved_by) to avoid DB policy leak.
-  void resolved_by; void pgConn(c);
-  return c.json({ count: 0, pendencies: [] });
+  try {
+    return c.json(await withClient(c.env, (client) => pendenciesView(client, c.req.query("resolved_by"))));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
 });
 
 app.get("/api/cases/:hash", async (c) => {
   const hash = c.req.param("hash");
   if (!/^[0-9a-f]{64}$/.test(hash)) return c.json({ error: "hash must be 64 hex", code: "bad_request" }, 400);
-  // SQL: SELECT act FROM public.logline_acts WHERE content_hash=$1
-  // + SELECT act FROM public.logline_acts WHERE act->>'this'=$1
-  void pgConn(c);
-  return c.json({ hash, fingerprint: fingerprint(hash), found: false, valid: false, slots: {}, fields: {}, timeline: [{ step: "registered", label: "Registrado", when: new Date().toISOString(), hash, fingerprint: fingerprint(hash) }], came_from: [], produced: [] }, 200);
-});
-
-app.get("/api/candidates", async (c) => c.json({ count: 0, candidates: [] }));
-app.get("/api/projections", async (c) => {
-  // Projections are rebuildable → D1. Ledger stays Postgres.
-  // Example D1 query: SELECT projection_hash, projection_spec, class, computed_at FROM projection_docs ORDER BY computed_at DESC LIMIT 50
   try {
-    const rows = await c.env.PROJECTIONS.prepare("SELECT projection_hash, projection_spec, class, computed_at FROM projection_docs ORDER BY computed_at DESC LIMIT 50").all();
-    const projections = (rows.results as unknown as Array<{ projection_hash: string; projection_spec: string; class: string; computed_at: string }>).map(r => ({ ...r, fingerprint: fingerprint(r.projection_hash), authoritative: false, rebuildable: true }));
-    return c.json({ count: projections.length, note: "Resumos reconstruíveis. Não são a fonte.", projections });
-  } catch {
-    return c.json({ count: 0, note: "Resumos reconstruíveis. Não são a fonte.", projections: [] });
+    const detail = await withClient(c.env, (client) => caseView(client, hash));
+    if (!detail) return c.json({ error: "case not found", code: "not_found" }, 404);
+    return c.json(detail);
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
   }
 });
-app.post("/api/migrate", async (c) => {
-  // Protected: only service_role via header X-Migrate-Token == SUPABASE_SECRET_KEY (or hyperdrive check)
-  const token = c.req.header("x-migrate-token") || c.req.header("authorization")?.replace("Bearer ", "");
-  if (!token) return c.json({ error: "missing token" }, 401);
-  // Allow if token matches hyperdrive connection (service_role) — simple check: try to connect, if fail -> 403
-  const connStr = pgConn(c);
-  if (!connStr) return c.json({ error: "no hyperdrive" }, 500);
+
+app.get("/api/candidates", async (c) => {
   try {
-    const { Client } = await import("pg");
-    const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
-    await client.connect();
-    try {
-      // Idempotent DDL — same as migrations/0001-0003
+    return c.json(await withClient(c.env, (client) => candidatesView(client)));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.get("/api/projections", async (c) => {
+  try {
+    const rows = await c.env.PROJECTIONS.prepare("SELECT projection_hash, projection_spec, class, computed_at FROM projection_docs ORDER BY computed_at DESC LIMIT 50").all();
+    const projections = (rows.results as unknown as Array<{ projection_hash: string; projection_spec: string; class: string; computed_at: string }>).map((row) => ({
+      ...row,
+      fingerprint: fingerprint(row.projection_hash),
+      authoritative: false,
+      rebuildable: true,
+    }));
+    return c.json({ count: projections.length, note: "Resumos reconstruiveis. Nao sao a fonte.", projections });
+  } catch (error) {
+    return c.json({ error: "projection store unavailable", code: "projection_store_unavailable", detail: errorText(error).slice(0, 300) }, 503);
+  }
+});
+
+app.post("/api/migrate", async (c) => {
+  const supplied = c.req.header("x-migrate-token") || c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!c.env.MIGRATE_TOKEN) return c.json({ error: "MIGRATE_TOKEN is not configured", code: "not_configured" }, 501);
+  if (!supplied || supplied !== c.env.MIGRATE_TOKEN) return c.json({ error: "forbidden", code: "forbidden" }, 403);
+  try {
+    const result = await withClient(c.env, async (client) => {
       await client.query(`
         create table if not exists public.logline_acts (
           content_hash text primary key check (content_hash ~ '^[0-9a-f]{64}$'),
@@ -217,179 +254,353 @@ app.post("/api/migrate", async (c) => {
         create trigger logline_acts_no_delete before delete on public.logline_acts for each row execute function public.prevent_logline_acts_mutation();
         alter table public.logline_acts enable row level security;
         alter function public.prevent_logline_acts_mutation() set search_path = '';
-        do $$ begin if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'logline_acts') then alter publication supabase_realtime add table public.logline_acts; end if; end $$;
+        create table if not exists public.process_contracts (
+          process_id text primary key,
+          title text not null,
+          contract jsonb not null,
+          status text not null default 'active',
+          source_yml text,
+          registered_hash text references public.logline_acts(content_hash),
+          created_at timestamptz not null default now()
+        );
+        create table if not exists public.runtime_queue (
+          queue_id text primary key,
+          source_hash text not null references public.logline_acts(content_hash),
+          process_id text not null,
+          adapter text not null,
+          status text not null default 'queued' check(status in ('queued','claimed','closed','failed','released')),
+          attempts integer not null default 0,
+          claimed_by text,
+          created_at timestamptz not null default now(),
+          updated_at timestamptz not null default now(),
+          result_hash text references public.logline_acts(content_hash),
+          last_error text,
+          unique(source_hash,process_id,adapter)
+        );
+        create index if not exists runtime_queue_status_idx on public.runtime_queue(status,created_at);
       `);
-      const chk = await client.query("select relname, relrowsecurity from pg_class where relname='logline_acts'");
-      return c.json({ ok: true, relrowsecurity: chk.rows[0]?.relrowsecurity ?? null });
-    } finally { await client.end().catch(()=>{}); }
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ ok: false, error: msg.slice(0, 500) }, 500);
+      for (const seed of SEED_CONTRACTS) {
+        await client.query(
+          `INSERT INTO public.process_contracts(process_id,title,contract,status,source_yml)
+           VALUES ($1,$2,$3::jsonb,$4,$5)
+           ON CONFLICT(process_id) DO UPDATE SET title=excluded.title,contract=excluded.contract,status=excluded.status,source_yml=excluded.source_yml`,
+          [seed.process_id, seed.title, JSON.stringify(seed.contract), seed.status, seed.source_yml],
+        );
+      }
+      const genesis = c.env.GENESIS_AUTHORITY?.trim();
+      if (genesis && !(await authorityRecognized(client, genesis))) {
+        await appendAct(client, {
+          who: genesis, did: "authority", this: genesis, when: new Date().toISOString(),
+          confirmed_by: genesis, if_ok: "authority-active.v1", if_doubt: "attention-raise.v1", if_not: "stop",
+          status: "active", registered_by: genesis, genesis: true, note: "Worker bootstrap genesis",
+        });
+      }
+      const count = await client.query<{ count: number }>("SELECT count(*)::int AS count FROM public.process_contracts");
+      return { count: count.rows[0]?.count ?? 0, genesis: genesis || null };
+    });
+    return c.json({ ok: true, process_contracts: result.count, genesis_authority: result.genesis });
+  } catch (error) {
+    return c.json({ ok: false, ...dbFailure(error) }, 500);
   }
 });
 
-// --- Chat LLM: só golden-bridge, fetch tudo da API, zero chave, zero hardcode ---
+
+app.post("/api/chat/turn", async (c) => {
+  const body = await c.req.json().catch(() => null) as { message?: string; conversation_id?: string; model?: string } | null;
+  const message = body?.message?.trim() ?? "";
+  const conversationId = body?.conversation_id?.trim();
+  if (!message) return c.json({ error: "message is required", code: "bad_request" }, 400);
+  if (message.length > 12000) return c.json({ error: "message is too long", code: "bad_request" }, 400);
+  if (conversationId && !/^[A-Za-z0-9_-]{8,80}$/.test(conversationId)) {
+    return c.json({ error: "conversation_id is invalid", code: "bad_request" }, 400);
+  }
+  try {
+    const result = await withClient(c.env, (client) => runChatTurn(c.env, client, {
+      message,
+      conversation_id: conversationId,
+      model: body?.model?.trim() || undefined,
+    }));
+    return c.json(result);
+  } catch (error) {
+    const detail = errorText(error);
+    if (/chat_turns|projection_docs|no such table/i.test(detail)) {
+      return c.json({ error: "chat projection store is not migrated", code: "not_migrated", detail: detail.slice(0, 300) }, 503);
+    }
+    if (/golden_bridge|model_catalog|llm_|fetch failed|network/i.test(detail)) {
+      return c.json({ error: "modelo indisponível, tente depois", code: "model_unavailable", detail: detail.slice(0, 300) }, 502);
+    }
+    if (/process_contracts|runtime_queue|logline_acts|connect/i.test(detail)) return c.json(dbFailure(error), 503);
+    return c.json({ error: "chat turn failed safely", code: "chat_turn_failed", detail: detail.slice(0, 300) }, 500);
+  }
+});
+
+// Legacy for one release. New UI will move to /api/chat/turn in W3.
 app.post("/api/chat/compile", async (c) => {
   const body = await c.req.json().catch(() => null) as { intent?: string; model?: string } | null;
   const intent = body?.intent?.trim();
   const requestedModel = body?.model?.trim();
   if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
-
-  // O bridge é OpenAI-compat (/v1/chat/completions). Ele escolhe local (512) ou gateway
-  // externo pelo model id; aqui só mandamos o contrato process_ingress.v1 e validamos a volta.
-  const types = await (await app.request("/api/process-types", {}, c.env as unknown as Record<string, string>)).json() as {
-    types: Array<{ process_id: string; title: string; requires: string[]; accepts: string[]; danger_tier: string; needs_approval: boolean; irreversible: boolean; runnable: boolean }>;
-  };
-  const catalog = types.types;
-  const catalogText = catalog.map(t => `${t.process_id} | ${t.title} | requires=[${t.requires.join(",")}] | accepts=[${t.accepts.join(",")}] | danger=${t.danger_tier}`).join("\n");
-  const prompt = `Compile the intent into exactly one registered process type.
-
-CATALOG (choose process_id only from here):
-${catalogText}
-
-INTENT: ${intent}
-
-Answer with JSON only, no prose, no markdown fence:
-{"process_id":"<from catalog>","fields":{"<declared key>":"<value>"},"missing":["<required key absent from intent>"],"note":"<one short sentence in Portuguese>"}
-Rules: fields keys must come only from that type's requires/accepts. Never invent who, when or confirmed_by. If the intent does not match any type, use "process_id":"" and explain in note.`;
-
   try {
-    const r = await bridgeFetch(c.env, "/v1/chat/completions", {
+    const catalog = await withClient(c.env, async (client) => Array.from((await loadContracts(client)).values()).map(toProcessTypeView));
+    const catalogText = catalog.map((type) => `${type.process_id} | ${type.title} | requires=[${type.requires.join(",")}] | accepts=[${type.accepts.join(",")}] | danger=${type.danger_tier} | readiness=${type.readiness}`).join("\n");
+    const prompt = `Compile the intent into exactly one registered process type.\n\nCATALOG (choose process_id only from here):\n${catalogText}\n\nINTENT: ${intent}\n\nAnswer with JSON only, no prose, no markdown fence:\n{"process_id":"<from catalog>","fields":{"<declared key>":"<value>"},"missing":["<required key absent from intent>"],"note":"<one short sentence in Portuguese>"}\nRules: fields keys must come only from that type's requires/accepts. Never invent who, when or confirmed_by. If the intent does not match any type, use \"process_id\":\"\" and explain in note.`;
+    const response = await bridgeFetch(c.env, "/v1/chat/completions", {
       method: "POST",
-      body: JSON.stringify({
-        model: requestedModel || "mistral-nemo-q4",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
-        max_tokens: 400,
-      }),
+      body: JSON.stringify({ model: requestedModel || "mistral-nemo-q4", messages: [{ role: "user", content: prompt }], temperature: 0, max_tokens: 400 }),
     });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      return c.json({ error: `golden-bridge error: ${r.status} ${txt.slice(0, 400)}`, code: "golden-bridge-error" }, 502);
-    }
-    const completion = await r.json() as { choices?: Array<{ message?: { content?: string } }> };
+    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
+    const completion = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const text = completion.choices?.[0]?.message?.content ?? "";
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) return c.json({ error: "modelo não devolveu JSON", code: "llm-invalid", raw: text.slice(0, 400) }, 502);
-    const parsed = JSON.parse(m[0]) as { process_id?: string; fields?: Record<string, string>; missing?: string[]; note?: string };
-    const entry = catalog.find(t => t.process_id === parsed.process_id);
-    if (!entry) {
-      return c.json({ suggestion: null, candidates: [], intent, note: parsed.note ?? "Nenhum tipo do catálogo serve — cadastre um tipo novo." });
-    }
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return c.json({ error: "modelo nao devolveu JSON", code: "llm-invalid" }, 502);
+    const parsed = JSON.parse(match[0]) as { process_id?: string; fields?: Record<string, string>; note?: string };
+    const entry = catalog.find((type) => type.process_id === parsed.process_id);
+    if (!entry) return c.json({ suggestion: null, candidates: [], intent, note: parsed.note ?? "Nenhum tipo do catalogo serve." });
     const allowed = new Set([...entry.requires, ...entry.accepts]);
     const fields: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed.fields ?? {})) if (allowed.has(k)) fields[k] = String(v).slice(0, 500);
-    const missing = entry.requires.filter(k => !fields[k]);
+    for (const [key, raw] of Object.entries(parsed.fields ?? {})) if (allowed.has(key)) fields[key] = String(raw).slice(0, 500);
+    const missing = entry.requires.filter((key) => !fields[key]);
+    const suggestion = { ...entry, fields, missing, citations: [], note: parsed.note, confidence: missing.length ? "medium" : "high" };
     return c.json({
       intent,
-      suggestion: {
-        process_id: entry.process_id,
-        title: entry.title,
-        fields,
-        missing,
-        citations: [],
-        note: parsed.note,
-        confidence: missing.length ? "medium" : "high",
-        runnable: entry.runnable,
-        needs_approval: entry.needs_approval,
-        irreversible: entry.irreversible,
-      },
-      candidates: catalog.filter(t => t.process_id !== entry.process_id).map(t => ({
-        process_id: t.process_id, title: t.title, fields: {}, missing: t.requires, citations: [],
-        confidence: "low" as const, runnable: t.runnable, needs_approval: t.needs_approval, irreversible: t.irreversible,
-      })),
+      suggestion,
+      candidates: catalog.filter((type) => type.process_id !== entry.process_id).map((type) => ({ ...type, fields: {}, missing: type.requires, citations: [], confidence: "low" })),
     });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return c.json({ error: `golden-bridge unavailable: ${msg.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
+  } catch (error) {
+    const message = errorText(error);
+    if (/process_contracts|hyperdrive|connect/i.test(message)) return c.json(dbFailure(error), 503);
+    return c.json({ error: `golden-bridge unavailable: ${message.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
   }
 });
 
 app.post("/api/process-types", async (c) => {
   const body = await c.req.json().catch(() => null) as { process_id?: string; title?: string; requires?: string[]; accepts?: string[]; danger_tier?: string; description?: string } | null;
   if (!body?.process_id || !body?.title) return c.json({ error: "process_id and title are required", code: "bad_request" }, 400);
-  if (!/^[a-z0-9][a-z0-9-]*\.v[0-9]+$/.test(body.process_id)) return c.json({ error: "process_id must match ^[a-z0-9][a-z0-9-]*\\.v[0-9]+$", code: "bad_request" }, 400);
-  // Em produção grava em Postgres/D1 + gera YML em R2; stub persiste em D1 projection_docs como marcador
+  if (!/^[a-z0-9][a-z0-9-]*\.v[0-9]+$/.test(body.process_id)) return c.json({ error: "invalid process_id", code: "bad_request" }, 400);
+  const draft = {
+    process_id: body.process_id,
+    title: body.title,
+    required_aux: Array.isArray(body.requires) ? body.requires : [],
+    optional_aux: Array.isArray(body.accepts) ? body.accepts : [],
+    danger_tier: body.danger_tier || "L0",
+    description: body.description || "",
+  };
   try {
-    const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(body))))).map(b=>b.toString(16).padStart(2,"0")).join("");
-    await c.env.PROJECTIONS.prepare("CREATE TABLE IF NOT EXISTS process_type_proposals (process_id TEXT PRIMARY KEY, title TEXT, body TEXT, hash TEXT, created_at TEXT)").run();
-    await c.env.PROJECTIONS.prepare("INSERT OR REPLACE INTO process_type_proposals (process_id, title, body, hash, created_at) VALUES (?,?,?,?,?)")
-      .bind(body.process_id, body.title, JSON.stringify(body), hash, new Date().toISOString()).run();
-    return c.json({ ok: true, process_id: body.process_id, hash, note: "Tipo registrado como proposta. Em produção gera processes/*.v1.yml e recarrega catalog." });
-  } catch (e) {
-    return c.json({ ok: true, process_id: body.process_id!, note: "Stub: tipo aceito (D1 indisponível)." });
+    const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(draft)));
+    const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    await c.env.PROJECTIONS.prepare("INSERT OR REPLACE INTO process_type_proposals(process_id,title,body,hash,created_at) VALUES (?,?,?,?,?)")
+      .bind(body.process_id, body.title, JSON.stringify(draft), hash, new Date().toISOString()).run();
+    return c.json({ ok: true, process_id: body.process_id, hash, draft, note: "Proposta registrada. O tipo so fica executavel depois de entrar em process_contracts." });
+  } catch (error) {
+    const detail = errorText(error);
+    if (/process_type_proposals|no such table/i.test(detail)) {
+      return c.json({ error: "process type proposal store is not migrated", code: "not_migrated", detail: detail.slice(0, 300) }, 503);
+    }
+    return c.json({ error: "process type proposal store unavailable", code: "proposal_store_unavailable", detail: detail.slice(0, 300) }, 503);
   }
 });
 
-app.get("/api/grants", async (c) => c.json({ count: 0, grants: [] }));
-app.get("/api/grants/:gid", async (c) => c.json({ error: "not found", code: "not_found" }, 404));
+app.get("/api/grants", async (c) => {
+  try {
+    const grants = await withClient(c.env, (client) => listGrants(client));
+    return c.json({ count: grants.length, grants });
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.get("/api/grants/:gid", async (c) => {
+  const gid = c.req.param("gid");
+  if (!/^[0-9a-f]{64}$/.test(gid)) return c.json({ error: "grant id must be 64 hex", code: "bad_request" }, 400);
+  try {
+    const grant = await withClient(c.env, (client) => getGrantStanding(client, gid));
+    if (!grant) return c.json({ error: "grant not found", code: "not_found" }, 404);
+    return c.json(grant);
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.post("/api/grants", async (c) => {
+  const body = await c.req.json().catch(() => null) as GrantInput | null;
+  if (!body || typeof body !== "object") return c.json({ error: "body must be JSON object", code: "bad_request" }, 400);
+  const invalid = validateGrantInput(body);
+  if (invalid) return c.json({ error: `invalid or missing safety field: ${invalid}`, code: "bad_request", field: invalid }, 400);
+  try {
+    const grant = await withClient(c.env, (client) => registerGrant(client, body));
+    return c.json({ registered: true, grant_id: grant.id, fingerprint: fingerprint(grant.id) }, 201);
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.post("/api/grants/:gid/revoke", async (c) => {
+  const gid = c.req.param("gid");
+  const body = await c.req.json().catch(() => null) as { revoked_by?: string; reason?: string } | null;
+  const revokedBy = body?.revoked_by?.trim() ?? "";
+  if (!/^[0-9a-f]{64}$/.test(gid) || !revokedBy) return c.json({ error: "valid gid and revoked_by are required", code: "bad_request" }, 400);
+  try {
+    const result = await withClient(c.env, async (client) => {
+      const grant = await getGrantStanding(client, gid);
+      if (!grant) return { kind: "missing" as const };
+      if (!(await authorityRecognized(client, revokedBy))) return { kind: "forbidden" as const };
+      const receipt = await revokeGrant(client, gid, revokedBy, body?.reason || "revoked");
+      return { kind: "ok" as const, receipt };
+    });
+    if (result.kind === "missing") return c.json({ error: "grant not found", code: "not_found" }, 404);
+    if (result.kind === "forbidden") return c.json({ error: "revoked_by is not a recognized authority", code: "unregistered_authority" }, 403);
+    return c.json({ revoked: true, id: result.receipt.id, fingerprint: fingerprint(result.receipt.id) });
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+function webauthnError(code: string, detail?: string) {
+  const messages: Record<string, string> = {
+    not_found: "grant not found",
+    unregistered_authority: "identity is not a recognized authority",
+    grant_unsigned: "authority has no enrolled passkey",
+    signoff_signer_mismatch: "signer must be the authority that granted this authorization",
+    signature_invalid: "passkey assertion is invalid, expired, or already used",
+  };
+  return { error: messages[code] ?? "WebAuthn operation failed", code, ...(detail ? { detail: detail.slice(0, 300) } : {}) };
+}
+
+function webauthnStatus(code: string): 403 | 404 {
+  return code === "not_found" ? 404 : 403;
+}
+
+app.post("/api/webauthn/enroll/options", async (c) => {
+  const body = await c.req.json().catch(() => null) as { identity?: string } | null;
+  const identity = body?.identity?.trim() ?? "";
+  if (!identity) return c.json({ error: "identity is required", code: "bad_request" }, 400);
+  try {
+    const result = await withClient(c.env, (client) => createEnrollmentOptions(c.env, client, identity));
+    if (!result.ok) return c.json(webauthnError(result.code), webauthnStatus(result.code));
+    return c.json(result.options);
+  } catch (error) {
+    return c.json({ error: "WebAuthn enrollment options unavailable", code: "webauthn_unavailable", detail: errorText(error).slice(0, 300) }, 503);
+  }
+});
+
+app.post("/api/webauthn/enroll/verify", async (c) => {
+  const body = await c.req.json().catch(() => null) as { identity?: string; credential?: RegistrationResponseJSON } | null;
+  const identity = body?.identity?.trim() ?? "";
+  if (!identity || !body?.credential) return c.json({ error: "identity and credential are required", code: "bad_request" }, 400);
+  try {
+    const result = await withClient(c.env, (client) => verifyEnrollment(c.env, client, identity, body.credential as RegistrationResponseJSON));
+    if (!result.ok) return c.json(webauthnError(result.code, "detail" in result ? result.detail : undefined), webauthnStatus(result.code));
+    return c.json({ verified: true, enrolled: true, id: result.id, fingerprint: fingerprint(result.id), credential_id: result.credential_id }, 201);
+  } catch (error) {
+    return c.json({ error: "WebAuthn enrollment verification unavailable", code: "webauthn_unavailable", detail: errorText(error).slice(0, 300) }, 503);
+  }
+});
+
+app.post("/api/webauthn/sign/options", async (c) => {
+  const body = await c.req.json().catch(() => null) as { identity?: string; grant_id?: string } | null;
+  const identity = body?.identity?.trim() ?? "";
+  const grantId = body?.grant_id?.trim() ?? "";
+  if (!identity || !/^[0-9a-f]{64}$/.test(grantId)) return c.json({ error: "identity and a 64-hex grant_id are required", code: "bad_request" }, 400);
+  try {
+    const result = await withClient(c.env, (client) => createSignOptions(c.env, client, identity, grantId));
+    if (!result.ok) return c.json(webauthnError(result.code), webauthnStatus(result.code));
+    return c.json(result.options);
+  } catch (error) {
+    return c.json({ error: "WebAuthn sign options unavailable", code: "webauthn_unavailable", detail: errorText(error).slice(0, 300) }, 503);
+  }
+});
+
+async function verifySignoffRequest(
+  c: Context<{ Bindings: Env }>,
+  grantIdFromPath?: string,
+) {
+  const body = await c.req.json().catch(() => null) as { identity?: string; signer?: string; grant_id?: string; credential?: AuthenticationResponseJSON } | null;
+  const identity = (body?.identity || body?.signer || "").trim();
+  const grantId = grantIdFromPath || body?.grant_id?.trim() || "";
+  if (!identity || !/^[0-9a-f]{64}$/.test(grantId) || !body?.credential) {
+    return c.json({ error: "identity/signer, grant_id, and credential are required", code: "bad_request" }, 400);
+  }
+  try {
+    const result = await withClient(c.env, async (client) => {
+      const verified = await verifyGrantSignoff(c.env, client, identity, grantId, body.credential as AuthenticationResponseJSON);
+      if (!verified.ok) return verified;
+      const resumed = await resumeGrantSources(client, grantId);
+      return { ...verified, resumed };
+    });
+    if (!result.ok) return c.json(webauthnError(result.code, "detail" in result ? result.detail : undefined), webauthnStatus(result.code));
+    return c.json({ verified: true, signed_off: true, id: result.id, fingerprint: fingerprint(result.id), sign_count: result.sign_count, resumed: result.resumed.length });
+  } catch (error) {
+    return c.json({ error: "WebAuthn signoff verification unavailable", code: "webauthn_unavailable", detail: errorText(error).slice(0, 300) }, 503);
+  }
+}
+
+app.post("/api/webauthn/sign/verify", (c) => verifySignoffRequest(c));
+app.post("/api/grants/:gid/signoff", (c) => verifySignoffRequest(c, c.req.param("gid")));
+
+// Control-plane receipts can only be minted by their dedicated, validated endpoints.
+// Otherwise a generic register call could forge authority, authenticator, grant, or signoff state.
 
 app.post("/api/register", async (c) => {
   const body = await c.req.json().catch(() => null);
-  if (!body || typeof body !== "object") return c.json({ error: "body must be JSON object", code: "bad_request" }, 400);
-  const who = (body as Record<string, unknown>).who;
-  if (!who || typeof who !== "string") return c.json({ error: "who is required", code: "bad_request" }, 400);
-  // Permanent: INSERT INTO public.logline_acts (content_hash, tuple_hash, receipt_version, act) VALUES (...) ON CONFLICT DO NOTHING
-  // using content-addressed id = sha256(canonical_json(receipt)). Triggers enforce append-only even for service_role.
-  // Then evaluate + receiver_select as in lab/api.py:register. Never fuse "registered" and "activated".
-  // Real insert via Hyperdrive (service_role) — falls back to stub if table not yet migrated or pooler not reachable.
-  let inserted = false;
-  let hash = "0".repeat(64);
-  let insertError: string | null = null;
-  try {
-    const connStr = pgConn(c);
-    if (connStr) {
-      const bodyStr = JSON.stringify(body);
-      const enc = new TextEncoder().encode(bodyStr);
-      const buf = await crypto.subtle.digest("SHA-256", enc);
-      hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-      // Use pg via Hyperdrive — note Workers needs nodejs_compat (already enabled)
-      const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
-      try {
-        await client.connect();
-        // Ensure receipt_version is set, compute tuple_hash as same as content_hash for minimal stub (real uses canonical_json + hashes)
-        const act = { ...body, id: hash, receipt_version: "logline.receipt.v0", hashes: { tuple_hash: hash } } as Record<string, unknown>;
-        await client.query(
-          "INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING",
-          [hash, hash, "logline.receipt.v0", JSON.stringify(act)]
-        );
-        inserted = true;
-      } catch (e: unknown) {
-        insertError = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300);
-        // PGRST205 (table missing) or network → fallback to stub, but surface error in prod logs
-        console.error("register insert failed", insertError);
-      } finally {
-        try { await (client as unknown as { end: () => Promise<void> }).end(); } catch {}
-      }
-    }
-  } catch (e) { insertError = e instanceof Error ? e.message.slice(0, 300) : String(e).slice(0, 300); }
-  if (!inserted && insertError && insertError.includes("does not exist")) {
-    return c.json({ registered: true, id: hash, fingerprint: fingerprint(hash), activated: false, waiting: { message: "Registrado (DB ainda não migrado — stub).", action: "Ver caso" }, warning: insertError }, 200);
+  if (!body || typeof body !== "object" || Array.isArray(body)) return c.json({ error: "body must be JSON object", code: "bad_request" }, 400);
+  const raw = body as Record<string, unknown>;
+  const requestedDid = String(raw.did ?? "").trim();
+  if (!canGenericRegisterDid(requestedDid)) {
+    return c.json({ error: `did ${requestedDid} is reserved for a validated server-side flow`, code: "reserved_did" }, 403);
   }
-  return c.json({ registered: true, id: hash, fingerprint: fingerprint(hash), activated: false, waiting: { message: inserted ? "Registrado. Pendente." : "Registrado. Pendente (DB wiring fallback — stub).", action: "Ver caso" }, ...(insertError ? { warning: insertError } : {}) }, 200);
+  const fields = Object.fromEntries(Object.entries(raw).filter(([key]) => !["id", "hashes", "receipt_version", "json_canonicalization"].includes(key)));
+  for (const slot of ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"]) {
+    if (!(slot in fields)) fields[slot] = "";
+  }
+  if (!String(fields.when ?? "")) fields.when = new Date().toISOString();
+  if (!String(fields.who ?? "").trim()) return c.json({ error: "who is required", code: "bad_request" }, 400);
+
+  try {
+    return await withClient(c.env, async (client) => {
+      try {
+        const outcome = await registerFlow(client, fields, { append: appendAct, loadCatalog: loadContracts, evaluateReceipt: evaluate, selectReceiver: receiverSelect });
+        return c.json(registerResponse(outcome));
+      } catch (runtimeError) {
+        if (runtimeError instanceof RegisterActivationError) {
+          return c.json({
+            registered: true,
+            id: runtimeError.receipt.id,
+            fingerprint: fingerprint(runtimeError.receipt.id),
+            activated: false,
+            queued: false,
+            error: "registered, but activation is unavailable",
+            code: "runtime_unavailable",
+            detail: runtimeError.causeDetail.slice(0, 300),
+          }, 503);
+        }
+        throw runtimeError;
+      }
+    });
+  } catch (error) {
+    const message = errorText(error);
+    if (/forbidden top-level|receipt slot|JCS|unsupported JCS/i.test(message)) return c.json({ error: message, code: "bad_request" }, 400);
+    return c.json(dbFailure(error), 503);
+  }
 });
 
-app.post("/api/advance", async (c) => c.json({ ran: false, note: "nada na fila (stub — wire to executor_run_once via Hyperdrive)" }));
-app.post("/api/grants", async (c) => c.json({ error: "wire to register_grant via Hyperdrive (needs valid_until, timeout, fs_scope, network_policy)", code: "not_wired" }, 501));
-app.post("/api/grants/:gid/signoff", async (c) => c.json({ error: "wire to record_grant_signoff", code: "not_wired" }, 501));
-app.post("/api/grants/:gid/revoke", async (c) => c.json({ error: "wire to revoke_grant", code: "not_wired" }, 501));
+app.post("/api/advance", async (c) => {
+  const body = await c.req.json().catch(() => ({})) as { worker?: string };
+  try {
+    const queue = await withClient(c.env, (client) => executorRunOnce(client, body.worker?.trim() || "api"));
+    if (!queue) return c.json({ ran: false, note: "nada na fila" });
+    return c.json({ ran: true, queue });
+  } catch (error) {
+    return c.json({ error: "executor failed", code: "executor_failed", detail: errorText(error).slice(0, 300) }, 500);
+  }
+});
 
-// Cron: * * * * * → clock_select_due via Hyperdrive (replaces per-process queues). Bell stays push; queue drain via POST /api/advance or loop here.
-// scheduled() is invoked by Cloudflare Cron Triggers (see wrangler.jsonc triggers.crons).
 export default {
   fetch: app.fetch,
-  async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
-    // Cron * * * * * — Hyperdrive-backed fallback when bell drops
+  async scheduled(_controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
     try {
-      const connStr = (env.HYPERDRIVE as unknown as { connectionString: string })?.connectionString;
-      if (!connStr) return;
-      const { Client } = await import("pg");
-      const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
-      await client.connect();
-      try {
-        // Idempotent: queue_rebuild_due replays from ledger; clock_select_due wakes due timers
-        await client.query("SELECT 1"); // replace with SELECT clock_select_due() / queue_rebuild_due when functions exist
-      } finally { await client.end().catch(()=>{}); }
-    } catch (e) { console.error("scheduled cron failed", e); }
+      await withClient(env, (client) => executorRunOnce(client, "cron"));
+    } catch (error) {
+      console.error("scheduled executor failed", error);
+    }
   },
 } as ExportedHandler<Env>;

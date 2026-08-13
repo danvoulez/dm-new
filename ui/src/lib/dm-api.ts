@@ -10,7 +10,16 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    throw new Error(txt || `${res.status} ${res.statusText}`);
+    let message = txt;
+    if (txt) {
+      try {
+        const parsed = JSON.parse(txt) as { error?: unknown; message?: unknown };
+        message = typeof parsed.error === "string" ? parsed.error : typeof parsed.message === "string" ? parsed.message : txt;
+      } catch {
+        // Plain-text errors are already human-readable.
+      }
+    }
+    throw new Error(message || `${res.status} ${res.statusText}`);
   }
   return res.json() as Promise<T>;
 }
@@ -27,6 +36,7 @@ export type Pendency = {
   id: string;
   fingerprint: string | null;
   source_hash: string;
+  grant_id?: string | null;
   source_fingerprint: string | null;
   process_id?: string;
   when: string;
@@ -60,6 +70,8 @@ export type Vocabulary = { count: number; reasons: Array<{ code: string; templat
 export type CaseView = {
   hash: string;
   fingerprint: string | null;
+  title: string;
+  process_title: string;
   found: boolean;
   valid: boolean;
   slots: Record<string, string>;
@@ -67,6 +79,33 @@ export type CaseView = {
   timeline: Array<{ step: string; label: string; when: string; hash: string; fingerprint: string | null; code?: string; message?: string; action?: string }>;
   came_from: unknown[];
   produced: Array<{ hash: string; fingerprint: string | null; did: string }>;
+};
+
+
+export type ProcessListItem = {
+  hash: string;
+  title: string;
+  process_title: string;
+  state: "registered" | "moving" | "waiting" | "closed";
+  when: string | null;
+};
+
+export type GrantStanding = {
+  grant_id: string;
+  process: string | null;
+  adapter: string | null;
+  granted_by: string | null;
+  granted_to: string | null;
+  valid_until: string | null;
+  acu_limit: number | null;
+  timeout_seconds: number | null;
+  fs_scope: string | null;
+  network_policy: string | null;
+  revoked: boolean;
+  expired: boolean;
+  signed_off: boolean;
+  signoff_reason: string;
+  signer: string | null;
 };
 
 export type CandidatesView = { count: number; candidates: Array<{ id: string; fingerprint: string | null; did: string; when: string; payload: unknown; citations: unknown[] }> };
@@ -103,23 +142,44 @@ export type ProcessTypeCreate = {
 
 export type ModelInfo = { id: string; provider: "local" | "cloudflare" | "vercel"; object: string; owned_by: string };
 
+export type ChatRisk = "none" | "approval" | "irreversible";
+export type ChatAction =
+  | { kind: "confirm_register"; summary: string; fields: Record<string, string>; missing: string[]; risk: ChatRisk; register_body: Record<string, unknown> }
+  | { kind: "confirm_new_type"; summary: string; contract_draft: ProcessTypeCreate }
+  | { kind: "confirm_grant"; summary: string; grant_draft: Record<string, unknown> }
+  | { kind: "request_passkey"; summary: string; grant_id: string; sign_options: Record<string, unknown> }
+  | { kind: "status"; summary: string; case_hash?: string }
+  | { kind: "clarify"; question: string };
+
+export type ChatTurnResult = {
+  reply: string;
+  conversation_id: string;
+  action?: ChatAction;
+};
+
 export const dmApi = {
   health: () => req<{ ok: boolean; ledger: string; acts: number }>("/api/health"),
   now: () => req<NowView>("/api/now"),
   vocabulary: () => req<Vocabulary>("/api/vocabulary"),
   processTypes: () => req<{ count: number; types: ProcessType[] }>("/api/process-types"),
+  processes: () => req<{ count: number; processes: ProcessListItem[] }>("/api/processes"),
   pendencies: (resolved_by?: string) => req<{ count: number; pendencies: Pendency[] }>(`/api/pendencies${resolved_by ? `?resolved_by=${resolved_by}` : ""}`),
   case: (hash: string) => req<CaseView>(`/api/cases/${hash}`),
   candidates: () => req<CandidatesView>("/api/candidates"),
   projections: () => req<{ count: number; note: string; projections: ProjectionsView["projections"] }>("/api/projections"),
-  grants: () => req<{ count: number; grants: unknown[] }>("/api/grants"),
-  grant: (gid: string) => req<{ grant: unknown }>(`/api/grants/${gid}`),
-  signoff: (gid: string, body: { signer: string; credential: string }) => req<unknown>(`/api/grants/${gid}/signoff`, { method: "POST", body: JSON.stringify(body) }),
+  grants: () => req<{ count: number; grants: GrantStanding[] }>("/api/grants"),
+  grant: (gid: string) => req<GrantStanding>(`/api/grants/${gid}`),
+  signoff: (gid: string, body: { signer: string; credential: unknown }) => req<{ verified: boolean; signed_off: boolean; id: string }>(`/api/grants/${gid}/signoff`, { method: "POST", body: JSON.stringify(body) }),
+  webauthnEnrollOptions: (identity: string) => req<Record<string, unknown>>(`/api/webauthn/enroll/options`, { method: "POST", body: JSON.stringify({ identity }) }),
+  webauthnEnrollVerify: (identity: string, credential: unknown) => req<{ verified: boolean; enrolled: boolean; id: string }>(`/api/webauthn/enroll/verify`, { method: "POST", body: JSON.stringify({ identity, credential }) }),
+  webauthnSignOptions: (identity: string, grant_id: string) => req<Record<string, unknown>>(`/api/webauthn/sign/options`, { method: "POST", body: JSON.stringify({ identity, grant_id }) }),
+  webauthnSignVerify: (identity: string, grant_id: string, credential: unknown) => req<{ verified: boolean; signed_off: boolean; id: string }>(`/api/webauthn/sign/verify`, { method: "POST", body: JSON.stringify({ identity, grant_id, credential }) }),
   revoke: (gid: string, body: { revoked_by: string }) => req<unknown>(`/api/grants/${gid}/revoke`, { method: "POST", body: JSON.stringify(body) }),
-  createGrant: (body: Record<string, unknown>) => req<unknown>(`/api/grants`, { method: "POST", body: JSON.stringify(body) }),
+  createGrant: (body: Record<string, unknown>) => req<{ registered: boolean; grant_id: string; fingerprint: string | null }>(`/api/grants`, { method: "POST", body: JSON.stringify(body) }),
   advance: (body: Record<string, unknown>) => req<{ ran?: boolean; note?: string }>(`/api/advance`, { method: "POST", body: JSON.stringify(body) }),
-  register: (body: Record<string, unknown>) => req<{ receipt: unknown; verdict: unknown; id: string; fingerprint: string | null; activated?: boolean; waiting?: { message?: string; action?: string } }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
+  register: (body: Record<string, unknown>) => req<{ registered: boolean; id: string; fingerprint: string | null; activated: boolean; process_id?: string | null; queued?: boolean; waiting?: { code?: string; message?: string; action?: string; resolved_by?: string }; missing?: string[] }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
   chatCompile: (intent: string, model?: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent, model }) }),
+  chatTurn: (message: string, conversation_id?: string, model?: string) => req<ChatTurnResult>(`/api/chat/turn`, { method: "POST", body: JSON.stringify({ message, ...(conversation_id ? { conversation_id } : {}), ...(model ? { model } : {}) }) }),
   createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
   models: () => req<{ object: string; data: ModelInfo[] }>(`/api/models`),
 };

@@ -8,8 +8,9 @@
     "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "test:watch": "vitest --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts && node tests/f4-surface.mjs",
+    "test:watch": "vitest --config vitest.config.ts",
+    "test:f4-surface": "node tests/f4-surface.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",

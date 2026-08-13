@@ -5,11 +5,25 @@
   "scripts": {
     "dev": "wrangler dev --port 8787",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:receipt": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/receipt-parity.mjs",
+    "test:control-plane": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/control-plane.mjs",
+    "test": "npm run test:receipt && npm run test:control-plane && npm run test:register-flow && npm run test:grant-policy && npm run test:webauthn-challenge && npm run test:webauthn-assertion && npm run test:webauthn-replay && npm run test:chat-core && npm run test:readiness && npm run test:evaluator-parity && npm run test:migrations && npm run test:public-routes",
+    "test:webauthn-challenge": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/webauthn-challenge.mjs",
+    "test:chat-core": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/chat-core.mjs",
+    "test:readiness": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/contracts-readiness.mjs",
+    "test:evaluator-parity": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/evaluator-parity.mjs",
+    "test:migrations": "node tests/migrations.mjs",
+    "test:public-routes": "node tests/public-routes.mjs",
+    "test:webauthn-replay": "node tests/webauthn-replay-guard.mjs",
+    "test:grant-policy": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/grant-policy.mjs",
+    "test:register-flow": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/register-flow.mjs",
+    "test:webauthn-assertion": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/webauthn-assertion.mjs"
   },
   "dependencies": {
     "hono": "^4.6.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "@simplewebauthn/server": "^13.3.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250801.0",
