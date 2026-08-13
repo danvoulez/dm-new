@@ -21,6 +21,8 @@ ui (Cloudflare Pages)  ──→  Workers api (Hono)  ──Hyperdrive──→ 
    supabase db push # or psql $DATABASE_URL < migrations/0001_logline_acts.sql
    psql $DATABASE_URL < migrations/0002_realtime_publication.sql
    psql $DATABASE_URL < migrations/0003_rls_and_search_path.sql
+   psql $DATABASE_URL < migrations/0004_process_contracts.sql
+   psql $DATABASE_URL < migrations/0005_runtime_queue.sql
    # verify
    psql $DATABASE_URL -c "select * from pg_tables where tablename='logline_acts';"
    psql $DATABASE_URL -c "select relname, relrowsecurity from pg_class where relname='logline_acts';" # t = RLS on
@@ -62,8 +64,13 @@ ui (Cloudflare Pages)  ──→  Workers api (Hono)  ──Hyperdrive──→ 
    # Doppler alternative: doppler run -- npx wrangler deploy
    ```
 
-7. **Bootstrap genesis (once, LAB_MODE=bootstrap)**
+7. **Bootstrap genesis (once, explicit operator identity)**
    ```bash
+   # Worker/Postgres path: set once before the token-protected /api/migrate call.
+   printf '%s' 'dan@example.com' | npx wrangler secret put GENESIS_AUTHORITY
+   # /api/migrate appends the genesis authority only when that identity is not already active.
+
+   # Local Python/bench path remains:
    LAB_MODE=bootstrap LAB_DB="postgresql://..." python3 -m lab.cli bootstrap genesis
    # then lock to LAB_MODE=production everywhere
    ```

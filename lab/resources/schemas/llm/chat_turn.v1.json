@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "chat_turn.v1",
+  "description": "Human reply plus at most one server-validated Dream action.",
+  "type": "object",
+  "required": ["reply"],
+  "additionalProperties": false,
+  "properties": {
+    "reply": {"type": "string", "minLength": 1},
+    "conversation_id": {"type": "string"},
+    "action": {
+      "oneOf": [
+        {
+          "type": "object", "required": ["kind", "summary", "fields", "missing", "risk", "register_body"], "additionalProperties": false,
+          "properties": {
+            "kind": {"const": "confirm_register"}, "summary": {"type": "string"},
+            "fields": {"type": "object", "additionalProperties": {"type": "string"}},
+            "missing": {"type": "array", "items": {"type": "string"}},
+            "risk": {"enum": ["none", "approval", "irreversible"]},
+            "register_body": {"type": "object"}
+          }
+        },
+        {
+          "type": "object", "required": ["kind", "summary", "contract_draft"], "additionalProperties": false,
+          "properties": {"kind": {"const": "confirm_new_type"}, "summary": {"type": "string"}, "contract_draft": {"type": "object"}}
+        },
+        {
+          "type": "object", "required": ["kind", "summary", "grant_draft"], "additionalProperties": false,
+          "properties": {"kind": {"const": "confirm_grant"}, "summary": {"type": "string"}, "grant_draft": {"type": "object"}}
+        },
+        {
+          "type": "object", "required": ["kind", "summary", "grant_id", "sign_options"], "additionalProperties": false,
+          "properties": {"kind": {"const": "request_passkey"}, "summary": {"type": "string"}, "grant_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "sign_options": {"type": "object"}}
+        },
+        {
+          "type": "object", "required": ["kind", "summary"], "additionalProperties": false,
+          "properties": {"kind": {"const": "status"}, "summary": {"type": "string"}, "case_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+        },
+        {
+          "type": "object", "required": ["kind", "question"], "additionalProperties": false,
+          "properties": {"kind": {"const": "clarify"}, "question": {"type": "string"}}
+        }
+      ]
+    }
+  }
+}
