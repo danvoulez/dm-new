@@ -6,6 +6,7 @@ const HASH = /^[0-9a-f]{64}$/;
 const SLOTS: Slot[] = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"];
 const SLOT_SET = new Set<string>(SLOTS);
 const RESERVED_FIELDS = new Set(["process_id", "contract_hash", "id", "hashes", "receipt_version", "json_canonicalization"]);
+const SEARCH_STOP_WORDS = new Set(["uma", "uns", "com", "para", "por", "sem", "sobre", "este", "esta", "isso", "que", "dos", "das"]);
 
 export class ProcessToolError extends Error {
   readonly code: string;
@@ -73,16 +74,24 @@ function searchableText(contract: ProcessContract): string {
 }
 
 export async function searchProcesses(client: PgClient, query: string): Promise<ProcessSearchResult[]> {
-  const terms = normalize(query).split(/\s+/).filter(Boolean);
+  const terms = [...new Set(normalize(query).split(/\s+/).filter((term) => term.length >= 3 && !SEARCH_STOP_WORDS.has(term)))];
   const catalog = await loadContracts(client);
   return Array.from(catalog.values())
-    .filter((contract) => terms.length === 0 || terms.every((term) => searchableText(contract).includes(term)))
-    .map((contract) => ({
-      ...toProcessTypeView(contract),
-      purpose: purposeOf(contract),
-      citable: HASH.test(contract.registered_hash ?? ""),
-    }))
-    .sort((left, right) => left.process_id.localeCompare(right.process_id));
+    .map((contract) => {
+      const text = searchableText(contract);
+      const score = terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
+      return {
+        view: {
+          ...toProcessTypeView(contract),
+          purpose: purposeOf(contract),
+          citable: HASH.test(contract.registered_hash ?? ""),
+        },
+        score,
+      };
+    })
+    .filter(({ score }) => terms.length === 0 || score > 0)
+    .sort((left, right) => right.score - left.score || left.view.process_id.localeCompare(right.view.process_id))
+    .map(({ view }) => view);
 }
 
 export async function readProcessContract(client: PgClient, processId: string): Promise<ProcessContractForLLM> {

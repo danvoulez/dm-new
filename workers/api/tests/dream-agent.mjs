@@ -47,6 +47,8 @@ function harness(model) {
   assert.deepEqual(h.registered, []);
   assert.equal(model.requests[0].messages.filter((item) => item.role === "system").length, 1);
   assert.doesNotMatch(model.requests[0].messages[0].content, /CATÁLOGO|GRANTS|MODELOS|VOCABULÁRIO/);
+  assert.match(model.requests[0].messages[0].content, /nunca invente o resultado/i);
+  assert.match(model.requests[0].messages[0].content, /nunca faça registro puro/i);
 }
 
 {
