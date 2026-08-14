@@ -116,6 +116,17 @@ export async function runDreamTurn(
     const response = await deps.model.complete({ messages, tools: DREAM_TOOL_DEFINITIONS, tool_choice: toolChoice });
     const calls = Array.isArray(response.tool_calls) ? response.tool_calls : [];
     if (!calls.length) {
+      if (requiredTool) {
+        throw Object.assign(
+          new Error(`O modelo selecionado não executou a etapa processual obrigatória: ${requiredTool}.`),
+          {
+            code: "required_tool_not_called",
+            status: 502,
+            required_tool: requiredTool,
+            action: "Escolha outro modelo disponível na Golden Bridge.",
+          },
+        );
+      }
       const reply = String(response.content ?? "").trim();
       if (!reply) throw new Error("llm_empty_reply");
       return { reply, conversation_id: input.conversation_id, registrations, tool_trace: toolTrace };
