@@ -2,7 +2,6 @@ export type GoldenBridgeEnv = {
   GOLDEN_BRIDGE_URL?: string;
   GOLDEN_BRIDGE_ACCESS_ID?: string;
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
-  GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
 
 export type CatalogSourceStatus = "available" | "degraded" | "not_configured";
@@ -71,7 +70,6 @@ export async function goldenBridgeFetch(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
   const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
-  const host = new URL(publicBase).host;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string> | undefined),
@@ -79,12 +77,6 @@ export async function goldenBridgeFetch(
   if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
     headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
     headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
-  }
-  if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
-    return fetchImpl(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
-      ...init,
-      headers: { ...headers, Host: host },
-    });
   }
   return fetchImpl(`${publicBase}${path}`, { ...init, headers });
 }

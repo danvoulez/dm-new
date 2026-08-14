@@ -30,7 +30,6 @@ export type Env = {
   GOLDEN_BRIDGE_URL?: string;
   GOLDEN_BRIDGE_ACCESS_ID?: string;
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
-  GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
 
 const app = new Hono<{ Bindings: Env }>();
