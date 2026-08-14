@@ -12,7 +12,7 @@ const fakeClient = {};
 function fields(overrides = {}) {
   return {
     who: 'operator',
-    did: 'register',
+    did: 'registered',
     this: 'memory:test',
     when: '2026-08-13T08:00:00.000Z',
     confirmed_by: 'operator',

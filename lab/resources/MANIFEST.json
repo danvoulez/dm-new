@@ -1,8 +1,8 @@
 {
   "files": [
     {
-      "sha256": "16ad0d81e56afe13070daceaffa6a51385f4d1022692d663193fa4339951f63f",
-      "size": 1164,
+      "sha256": "a4966a8788959b5f1e3bcded7d830bedf676343e4a14839c838c150211b71c59",
+      "size": 934,
       "source": "processes/CURRENT_RUNNABLE_PROCESSES.md"
     },
     {
@@ -16,58 +16,58 @@
       "source": "processes/PROCESS_CONTRACT_TEMPLATE.yml"
     },
     {
-      "sha256": "85357c7b0710fb65a2c4e381181a5688f3084d6adfe55638924a6ec36b238f57",
-      "size": 266,
+      "sha256": "e2bf614844f37efa62840f3969adb39da0d7f0912808ab2e33b3f797487d91d2",
+      "size": 1248,
       "source": "processes/attention-raise.v1.yml"
     },
     {
-      "sha256": "9d13b97b68ef998c80ea30211d2e2dca3b2622af466bdcb7bed08dbc02ed18e3",
-      "size": 598,
+      "sha256": "b9b4a02f334b145dae37bd065d7a467a96cddb1839190e4697c3a8a53fb91149",
+      "size": 1589,
       "source": "processes/evidence-closure.v1.yml"
     },
     {
-      "sha256": "45cc03444ef6c08724662342358f5afd111901978f9fb819af6e3424534d6c2c",
-      "size": 574,
+      "sha256": "4f2cea91c1bb58c749435882387e5ec41efb4abd169c71cf027f21bade3073c2",
+      "size": 1536,
       "source": "processes/github-check.v1.yml"
     },
     {
-      "sha256": "73f270ab85cf526015f49e6e33eb964c7b18a4a7b0a19674e45d0f43bd6d1865",
-      "size": 350,
+      "sha256": "122834a2533672dbd312959084de33c9df31e1bd0f80fea00b03c7cad673df08",
+      "size": 1359,
       "source": "processes/inference.v1.yml"
     },
     {
-      "sha256": "74f3ea6e0d6d8c5f712f44b24bd6c1d66527d19c7b7ebf8bfaccbd15cf4fdb15",
-      "size": 304,
+      "sha256": "43a2a08a1beb3d045cf4601146fd937872a18bf1b5a3de3a96d874c908eb1cc9",
+      "size": 1293,
       "source": "processes/memory-register.v1.yml"
     },
     {
-      "sha256": "71dba986c8801c2b1b75556dfe5cf7fdcf18389ab8a291c4ec283b390b974f9e",
-      "size": 538,
+      "sha256": "1e04fc288312cd2e9f52b403d1dbdfc0f50308cd0a2e649fc845959663171907",
+      "size": 1541,
       "source": "processes/notification.v1.yml"
     },
     {
-      "sha256": "5e6537a27be01011cab926b42088b685684a963de17f65fa38af01a5c8ba2dd9",
-      "size": 610,
+      "sha256": "361e97841404e76f33ebcd9e4cdfcbcf7e32bbaf82c935e954afb4a018c26f74",
+      "size": 1600,
       "source": "processes/oauth-client.v1.yml"
     },
     {
-      "sha256": "570bf6f00181033152645bd2212772e0326e502b667b1f6a48af540bad9c58d7",
-      "size": 351,
+      "sha256": "c0ee404d3af982d1edc9f0d507bc620feeed878390f7e94970d67001db2c2a4d",
+      "size": 1371,
       "source": "processes/projection-build.v1.yml"
     },
     {
-      "sha256": "347d910ed31c9871b33097cd200c98d1141c3249249190f2a4fae9104aaece8d",
-      "size": 646,
+      "sha256": "a95106b5fc10897c0bd85c2a54201815e9b6930bf944264700b9f4f8ddd8c72a",
+      "size": 1634,
       "source": "processes/route-to-devin.v1.yml"
     },
     {
-      "sha256": "de999f49d0386c33303e1456eeed83fee44d7397f015ddab5f0f78505c240c7c",
-      "size": 302,
+      "sha256": "235d1564f675700c548a7d938345afc926d64e41337ff5aa2d2deaa23765bf54",
+      "size": 1281,
       "source": "processes/worker-run.v1.yml"
     },
     {
-      "sha256": "66b4e56d26fdb99d2d73051897d050c68f982fde095e6a63790143e8a968e658",
-      "size": 306,
+      "sha256": "f168b2c26a4465dc75d277fd58d5052df86d60dfb2ef9a054eaca0f6bbd807f9",
+      "size": 1306,
       "source": "processes/workflow-run.v1.yml"
     },
     {
@@ -151,8 +151,8 @@
       "source": "migrations/0003_rls_and_search_path.sql"
     },
     {
-      "sha256": "7e9ad11692de693eec873c62e4bdbf5541110a8e54a9662649ac7cd5f1747759",
-      "size": 24073,
+      "sha256": "885c8c1dcd3d0eff4923e177a10f85313c81805b72327c1ffd9d12466826f332",
+      "size": 24484,
       "source": "migrations/0004_process_contracts.sql"
     },
     {

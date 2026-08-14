@@ -57,7 +57,7 @@ danger_tier: L1
     receipt = {
         "who": "dan", "did": "admit", "this": "patient", "when": "2026-08-12T00:00:00Z",
         "confirmed_by": "dan", "if_ok": "mixed.v1", "if_doubt": "attention-raise.v1",
-        "if_not": "stop", "status": "registered",
+        "if_not": "stop", "status": "registered", "process_id": "mixed.v1",
     }
     decision = evaluate(receipt, "mixed.v1", catalog)
     assert decision["activate"] is False

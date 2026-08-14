@@ -144,7 +144,7 @@ async function queueAdd(client: PgClient, sourceHash: string, processId: string,
 export async function receiverSelect(client: PgClient, frequency: string, limit = 50) {
   const catalog = await loadContracts(client);
   const rows = await client.query<{ content_hash: string; act: Receipt }>(
-    "SELECT content_hash,act FROM public.logline_acts WHERE if_ok=$1 ORDER BY inserted_at,content_hash LIMIT $2",
+    "SELECT content_hash,act FROM public.logline_acts WHERE act->>'process_id'=$1 ORDER BY inserted_at,content_hash LIMIT $2",
     [frequency, limit],
   );
   const selected = [];

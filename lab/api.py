@@ -339,9 +339,9 @@ def register(db: sqlite3.Connection, body: dict[str, Any]) -> dict[str, Any]:
     # interface can show, or "nothing is lost" is only true of the ledger and not of
     # the screen.
     moved = None
-    if receipt.get("if_ok"):
+    if receipt.get("process_id"):
         ensure_runtime(db)
-        receiver_select(db, receipt["if_ok"], limit=50)
+        receiver_select(db, receipt["process_id"], limit=50)
         moved = bool(decision.get("activate"))
     outcome = {
         "registered": True,

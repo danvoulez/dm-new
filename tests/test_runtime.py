@@ -9,7 +9,21 @@ from lab.authority import register_genesis_authority
 
 
 def full(**extra):
-    base = {'who':'tester','did':'registered','this':'runtime','when':'2026-06-22T00:00:00Z','confirmed_by':'test','if_ok':'memory-register.v1','if_doubt':'attention-raise.v1','if_not':'stop','status':'registered'}
+    process_id = extra.get('process_id', 'memory-register.v1')
+    admitted_did = {
+        'attention-raise.v1': 'raise_attention',
+        'memory-register.v1': 'registered',
+        'projection-build.v1': 'build_projection',
+        'route-to-devin.v1': 'route_to_devin',
+        'worker-run.v1': 'run_worker',
+    }.get(process_id, 'registered')
+    base = {
+        'who': 'tester', 'did': admitted_did, 'this': 'runtime',
+        'when': '2026-06-22T00:00:00Z', 'confirmed_by': 'test',
+        'if_ok': process_id or 'memory-register.v1',
+        'if_doubt': 'attention-raise.v1', 'if_not': 'stop',
+        'status': 'registered', 'process_id': process_id,
+    }
     base.update(extra)
     return base
 
@@ -301,6 +315,18 @@ def test_receiver_activatable_record_is_not_doubted():
     selected = receiver_select(db, 'memory-register.v1')
     assert selected[0]['queued'] is not None
     assert selected[0]['doubt'] is None
+    count = db.execute("SELECT COUNT(*) c FROM logline_acts WHERE did='doubt'").fetchone()['c']
+    assert count == 0
+
+
+def test_receiver_never_selects_a_process_from_if_ok_alone():
+    db = connect(':memory:')
+    append(db, full(process_id=None, if_ok='memory-register.v1'))
+
+    selected = receiver_select(db, 'memory-register.v1')
+
+    assert selected == []
+    assert queue_list(db, 'all') == []
     count = db.execute("SELECT COUNT(*) c FROM logline_acts WHERE did='doubt'").fetchone()['c']
     assert count == 0
 

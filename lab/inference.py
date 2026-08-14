@@ -55,6 +55,7 @@ def build_inference_request(
         "if_doubt": "attention-raise.v1",
         "if_not": "no_model",
         "status": "candidate",
+        "process_id": "inference.v1",
         "task": task,
         "model_id": model_id,
         "prompt_id": prompt_id or f"{task}.v1",

@@ -31,10 +31,24 @@ REQUIRED_AUX = {
     'route-to-devin.v1': {'target_content_hash': 'd' * 64, 'target_process': 'worker-run.v1'},
 }
 
+ADMITTED_DID = {
+    'attention-raise.v1': 'raise_attention',
+    'evidence-closure.v1': 'close_evidence',
+    'github-check.v1': 'create_github_check',
+    'notification.v1': 'send_notification',
+    'memory-register.v1': 'registered',
+    'projection-build.v1': 'build_projection',
+    'inference.v1': 'requested_inference',
+    'oauth-client.v1': 'register_oauth_client',
+    'route-to-devin.v1': 'route_to_devin',
+    'worker-run.v1': 'run_worker',
+    'workflow-run.v1': 'run_workflow',
+}
+
 
 def full(pid, **extra):
     base = {
-        'who': 'tester', 'did': 'registered', 'this': 'x', 'when': '2026-06-22T00:00:00Z',
+        'who': 'tester', 'did': ADMITTED_DID[pid], 'this': 'x', 'when': '2026-06-22T00:00:00Z',
         'confirmed_by': 'test', 'if_ok': pid, 'if_doubt': 'attention-raise.v1',
         'if_not': 'stop', 'status': 'registered', 'process_id': pid,
     }

@@ -15,11 +15,17 @@ from lab.runtime import receiver_select, queue_list, queue_add, executor_run_onc
 
 
 def full(**extra):
+    process_id = extra.get('process_id', 'memory-register.v1')
+    admitted_did = {
+        'attention-raise.v1': 'raise_attention',
+        'memory-register.v1': 'registered',
+        'projection-build.v1': 'build_projection',
+    }.get(process_id, 'registered')
     base = {
-        'who': 'tester', 'did': 'registered', 'this': 'runtime',
+        'who': 'tester', 'did': admitted_did, 'this': 'runtime',
         'when': '2026-06-22T00:00:00Z', 'confirmed_by': 'test',
-        'if_ok': 'memory-register.v1', 'if_doubt': 'attention-raise.v1',
-        'if_not': 'stop', 'status': 'registered',
+        'if_ok': process_id or 'memory-register.v1', 'if_doubt': 'attention-raise.v1',
+        'if_not': 'stop', 'status': 'registered', 'process_id': process_id,
     }
     base.update(extra)
     return base
@@ -28,7 +34,7 @@ def full(**extra):
 def test_projection_build_enqueues_projection_adapter_not_receipt():
     """Task 5: projection-build.v1 must queue with adapter 'projection'."""
     db = connect(':memory:')
-    append(db, full(if_ok='projection-build.v1'))
+    append(db, full(process_id='projection-build.v1'))
     receiver_select(db, 'projection-build.v1')
     queued = queue_list(db, 'all')
     assert len(queued) == 1
@@ -38,7 +44,7 @@ def test_projection_build_enqueues_projection_adapter_not_receipt():
 
 def test_evaluator_blocks_matched_contract_without_adapter():
     """Task 4/11: a matched, complete, active contract with no adapter is not runnable."""
-    out = evaluate(full(if_ok='attention-raise.v1'), 'attention-raise.v1')
+    out = evaluate(full(process_id='attention-raise.v1'), 'attention-raise.v1')
     assert out['matched'] is True
     assert out['activate'] is False
     assert out['queueable'] is False
@@ -48,7 +54,7 @@ def test_evaluator_blocks_matched_contract_without_adapter():
 def test_contract_only_does_not_enqueue_as_receipt():
     """Task 6: a complete contract-only Act is doubted, never queued as a receipt."""
     db = connect(':memory:')
-    act = append(db, full(if_ok='attention-raise.v1'))
+    act = append(db, full(process_id='attention-raise.v1'))
     selected = receiver_select(db, 'attention-raise.v1')
 
     assert queue_list(db, 'all') == []
@@ -74,7 +80,7 @@ def test_day1_canonical_doubt_reasons_are_declared():
 def test_executor_refuses_dispatch_when_queue_adapter_mismatches_contract():
     """Task 10: a corrupted queue row (wrong adapter) is refused, not executed."""
     db = connect(':memory:')
-    act = append(db, full(if_ok='projection-build.v1'))
+    act = append(db, full(process_id='projection-build.v1'))
     # Queue claims 'receipt' but the contract resolves 'projection' — a mismatch.
     queue_add(db, act['id'], 'projection-build.v1', adapter='receipt')
 

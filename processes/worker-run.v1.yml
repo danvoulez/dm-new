@@ -1,9 +1,19 @@
 process_id: worker-run.v1
 status: active
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita o worker", source: session, predicate: who.authorized}
+    did: {meaning: "execução de worker admitida", source: llm, predicate: did.allowed, values: [run_worker]}
+    this: {meaning: "trabalho canônico do worker", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do trabalho", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma a execução", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após execução", source: contract, predicate: if_ok.compatible, values: [worker-run.v1]}
+    if_doubt: {meaning: "continuidade se a execução não for segura", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial do trabalho", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 adapters: [worker_run]
 danger_tier: L4

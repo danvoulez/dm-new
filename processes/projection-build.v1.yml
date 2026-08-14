@@ -1,9 +1,19 @@
 process_id: projection-build.v1
 status: active
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita a projeção", source: session, predicate: who.authorized}
+    did: {meaning: "pedido de projeção admitido", source: llm, predicate: did.allowed, values: [request_projection, build_projection]}
+    this: {meaning: "alvo canônico da projeção", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do pedido", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma a projeção", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após materializar", source: contract, predicate: if_ok.compatible, values: [projection-build.v1]}
+    if_doubt: {meaning: "continuidade se a projeção não puder ser provada", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial do pedido", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 adapters: [projection]
 danger_tier: L1

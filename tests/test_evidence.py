@@ -15,7 +15,7 @@ def _inference_receipt(**extra):
     base = {
         "who": "lab.cli", "did": "requested_inference", "this": "summarize", "when": "2026-06-22T00:00:00Z",
         "confirmed_by": "lab.cli", "if_ok": "inference.v1", "if_doubt": "attention-raise.v1",
-        "if_not": "no_model", "status": "candidate",
+        "if_not": "no_model", "status": "candidate", "process_id": "inference.v1",
     }
     base.update(extra)
     return base

@@ -47,7 +47,7 @@ export async function registerFlow(
     let decision = deps.evaluateReceipt(receipt, catalog);
     let queued = false;
 
-    const frequency = String(receipt.if_ok ?? "");
+    const frequency = String(receipt.process_id ?? "");
     if (frequency) {
       const selected = await deps.selectReceiver(client, frequency, 50);
       const current = selected.find((item) => item.hash === receipt.id);

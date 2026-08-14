@@ -9,9 +9,12 @@ def test_seed_rows_preserve_contract_semantics():
     rows = seed_rows(Path("processes"))
     projection = next(row for row in rows if row["process_id"] == "projection-build.v1")
 
-    assert projection["contract"]["activation_rules_explicit"] is False
+    assert projection["contract"]["activation_rules_explicit"] is True
     assert projection["contract"]["slot_rules"]["who"]["source"] == "session"
-    assert projection["contract"]["slot_rules"]["who"]["predicate"] == "who.present"
+    assert projection["contract"]["slot_rules"]["who"]["predicate"] == "who.authorized"
+    assert projection["contract"]["slot_rules"]["did"]["values"] == (
+        "request_projection", "build_projection"
+    )
 
 
 def test_generated_artifacts_are_in_sync():

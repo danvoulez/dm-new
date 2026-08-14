@@ -1,8 +1,18 @@
 process_id: evidence-closure.v1
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita fechamento", source: session, predicate: who.authorized}
+    did: {meaning: "ato de fechamento admitido", source: llm, predicate: did.allowed, values: [close_evidence]}
+    this: {meaning: "processo ou resultado a fechar", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do fechamento", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma a evidência", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após fechamento", source: contract, predicate: if_ok.compatible, values: [evidence-closure.v1]}
+    if_doubt: {meaning: "continuidade se a evidência for insuficiente", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial do pedido", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 # §18 — CONTRACT-ONLY. evidence-closure describes how a process closes over evidence; it
 # performs no work itself. Closure is enacted by the executor (close_evidence_incomplete /

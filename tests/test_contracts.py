@@ -193,6 +193,7 @@ def test_evaluator_uses_nested_required_aux(tmp_path):
         "if_doubt": "attention-raise.v1",
         "if_not": "stop",
         "status": "registered",
+        "process_id": "nested.v1",
     }
 
     out = evaluate(receipt, "nested.v1", catalog=load_catalog(tmp_path))

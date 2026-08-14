@@ -1,9 +1,19 @@
 process_id: memory-register.v1
 status: active
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que registra a memória", source: session, predicate: who.authorized}
+    did: {meaning: "ato explícito de registro", source: llm, predicate: did.allowed, values: [registered]}
+    this: {meaning: "memória ou fato registrado", source: llm, predicate: this.canonical}
+    when: {meaning: "instante do registro", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma o registro", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após registrar", source: contract, predicate: if_ok.compatible, values: [memory-register.v1]}
+    if_doubt: {meaning: "continuidade se o registro exigir atenção", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop, clock.skip]}
+    status: {meaning: "estado inicial do registro", source: contract, predicate: status.initial, values: [registered, scheduled]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 adapters: [receipt]
 danger_tier: L0

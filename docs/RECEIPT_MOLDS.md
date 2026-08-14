@@ -24,7 +24,7 @@ durable doubt here, not a separate shape.
 |---|---|
 | `doubt.no_adapter_configured` | `no_adapter_configured`, `adapter_not_registered` |
 | `doubt.dispatch_mismatch` | `dispatch_mismatch` |
-| `doubt.contract` | `no_matching_process_contract`, `process_not_active`, `incomplete` |
+| `doubt.contract` | `unknown_process`, `process_route_mismatch`, `process_not_active`, `incomplete`, `activation_rules_not_explicit`, `did_not_admitted`, `confirmed_by_not_authorized`, `this_not_canonical`, `this_not_content_hash`, `when_invalid`, `when_not_future`, `confirmation_evidence_invalid`, `if_ok_incompatible`, `if_doubt_incompatible`, `if_not_incompatible`, `status_initial_invalid`, `unknown_predicate` |
 | `doubt.grant_required` | `missing_required_grant` |
 | `doubt.grant_invalid` | `grant_not_found`, `grant_subject_mismatch`, `grant_process_mismatch`, `grant_adapter_mismatch`, `who_not_authorized`, `grant_not_active`, `grant_revoked`, `grant_expired`, `missing_grant_expiry`, `missing_timeout`, `missing_sandbox_scope`, `missing_network_policy`, `budget_exhausted` |
 | `doubt.authority` | `missing_authority`, `unregistered_authority`, `grant_unsigned`, `signoff_signer_mismatch`, `signature_layer_unavailable` |

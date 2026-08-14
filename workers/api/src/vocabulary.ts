@@ -1,9 +1,23 @@
-// Closed failure vocabulary from lab/messages.py — 27 codes, no hardcode in UI.
+// Closed failure vocabulary from lab/messages.py — no hardcode in UI.
 // Served by GET /api/vocabulary so UI renders without release when a reason is added.
 export const CATALOG: Record<string, [string, string, string]> = {
-  "no_matching_process_contract": ["Ficou registrado, mas não há um tipo de solicitação que case com isto.", "Escolher tipo", "user"],
+  "unknown_process": ["Ficou registrado, mas o tipo de processo solicitado não existe no catálogo atual.", "Escolher tipo", "user"],
+  "process_route_mismatch": ["O processo endereçado pela rota não é o mesmo declarado no registro. Nada foi executado.", "Ver integração", "operator"],
   "process_not_active": ["Este tipo de solicitação está desativado no momento.", "Avisar responsável", "operator"],
   "incomplete": ["Para andar, falta: {campos}.", "Completar", "user"],
+  "activation_rules_not_explicit": ["Este tipo existe, mas ainda não publicou regras semânticas completas para ativação.", "Avisar responsável", "operator"],
+  "did_not_admitted": ["O ato informado não é admitido por este tipo de processo.", "Reformular pedido", "user"],
+  "confirmed_by_not_authorized": ["A confirmação informada não pertence a uma autoridade admitida por este processo.", "Confirmar novamente", "user"],
+  "this_not_canonical": ["O alvo informado não é uma referência canônica válida para este processo.", "Corrigir alvo", "user"],
+  "this_not_content_hash": ["Este processo exige que o alvo seja um hash de conteúdo de 64 caracteres.", "Corrigir alvo", "user"],
+  "when_invalid": ["O instante informado não é uma data ISO 8601 com fuso horário.", "Corrigir data", "user"],
+  "when_not_future": ["Este processo exige um instante futuro, mas a data informada já passou.", "Escolher outra data", "user"],
+  "confirmation_evidence_invalid": ["A confirmação não contém o hash de evidência exigido por este processo.", "Fornecer evidência", "user"],
+  "if_ok_incompatible": ["A continuidade de sucesso não corresponde ao contrato citado.", "Ver composição", "operator"],
+  "if_doubt_incompatible": ["A continuidade de dúvida não corresponde ao contrato citado.", "Ver composição", "operator"],
+  "if_not_incompatible": ["A continuidade negativa não corresponde ao contrato citado.", "Ver composição", "operator"],
+  "status_initial_invalid": ["O estado inicial não é admitido pelo contrato deste processo.", "Ver composição", "operator"],
+  "unknown_predicate": ["O contrato usa um predicado de ativação que este runtime não implementa.", "Corrigir contrato", "operator"],
   "no_adapter_configured": ["Este tipo existe, mas ainda não executa nada.", "Avisar responsável", "operator"],
   "adapter_not_registered": ["A ação que este tipo pede ainda não existe neste sistema.", "Avisar responsável", "operator"],
   "dispatch_mismatch": ["A solicitação foi preparada com uma ação diferente da que a regra pede agora. Nada foi executado.", "Reenviar", "user"],

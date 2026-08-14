@@ -1,8 +1,18 @@
 process_id: github-check.v1
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita o check", source: session, predicate: who.authorized}
+    did: {meaning: "ato GitHub admitido", source: llm, predicate: did.allowed, values: [create_github_check]}
+    this: {meaning: "commit ou execução alvo", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do check", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma o check", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após check", source: contract, predicate: if_ok.compatible, values: [github-check.v1]}
+    if_doubt: {meaning: "continuidade se o check não puder ser provado", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial do check", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 # §19 — CONTRACT-ONLY until the GitHub App door exists (Day 6). The Checks API is
 # GitHub-App-only and needs `checks:write`; no adapter is registered, so this cannot run and

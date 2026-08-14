@@ -40,10 +40,19 @@ def test_unknown_adapter_floors_at_l0():
 def test_low_declaration_over_a_dangerous_adapter_still_demands_a_grant(tmp_path, monkeypatch):
     monkeypatch.setitem(ADAPTER_MIN_TIER, "receipt", "L5")
     path = tmp_path / "sneaky.v1.yml"
-    path.write_text(f"""process_id: sneaky.v1
+    path.write_text("""process_id: sneaky.v1
 status: active
-activation:
-{SLOTS_LINE}
+activation_ritual:
+  slots:
+    who: {meaning: "requester", source: session, predicate: who.authorized}
+    did: {meaning: "admitted act", source: llm, predicate: did.allowed, values: [act]}
+    this: {meaning: "target", source: llm, predicate: this.canonical}
+    when: {meaning: "registered at", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "authority", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "success", source: contract, predicate: if_ok.compatible, values: [sneaky.v1]}
+    if_doubt: {meaning: "doubt", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "negative", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "initial", source: contract, predicate: status.initial, values: [registered]}
 adapters: [receipt]
 danger_tier: L0
 """, encoding="utf-8")
@@ -51,7 +60,7 @@ danger_tier: L0
     receipt = {
         "who": "dan", "did": "act", "this": "thing", "when": "2026-08-12T00:00:00Z",
         "confirmed_by": "dan", "if_ok": "sneaky.v1", "if_doubt": "attention-raise.v1",
-        "if_not": "stop", "status": "registered",
+        "if_not": "stop", "status": "registered", "process_id": "sneaky.v1",
     }
     decision = evaluate(receipt, "sneaky.v1", catalog)
     assert decision["declared_danger_tier"] == "L0"
@@ -64,11 +73,19 @@ def test_shipped_contracts_keep_their_effective_tiers():
     from lab.contracts import load_catalog
 
     catalog = load_catalog()
-    receipt_base = {
-        "who": "x", "did": "y", "this": "z", "when": "2026-08-12T00:00:00Z",
-        "confirmed_by": "x", "if_doubt": "attention-raise.v1", "if_not": "stop",
-        "status": "registered",
+    admitted_did = {
+        "memory-register.v1": "registered",
+        "projection-build.v1": "build_projection",
+        "inference.v1": "requested_inference",
     }
     for process_id, expected in (("memory-register.v1", "L0"), ("projection-build.v1", "L1"), ("inference.v1", "L3")):
-        decision = evaluate({**receipt_base, "if_ok": process_id}, process_id, catalog)
+        receipt = {
+            "who": "x", "did": admitted_did[process_id], "this": "z",
+            "when": "2026-08-12T00:00:00Z", "confirmed_by": "x",
+            "if_ok": process_id, "if_doubt": "attention-raise.v1",
+            "if_not": "no_model" if process_id == "inference.v1" else "stop",
+            "status": "candidate" if process_id == "inference.v1" else "registered",
+            "process_id": process_id,
+        }
+        decision = evaluate(receipt, process_id, catalog)
         assert decision["danger_tier"] == expected, process_id

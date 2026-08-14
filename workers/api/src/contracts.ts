@@ -25,6 +25,7 @@ export type ProcessContract = {
   danger_tier?: string;
   evidence_obligation?: string;
   evidence_must_include?: string[];
+  doubt_path?: string;
 };
 
 export type ProcessTypeView = {
