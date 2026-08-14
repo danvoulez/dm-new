@@ -62,6 +62,7 @@ function harness(model) {
   assert.doesNotMatch(model.requests[0].messages[0].content, /CATÁLOGO|GRANTS|MODELOS|VOCABULÁRIO/);
   assert.match(model.requests[0].messages[0].content, /nunca invente o resultado/i);
   assert.match(model.requests[0].messages[0].content, /nunca faça registro puro/i);
+  assert.match(model.requests[0].messages[0].content, /não peça identidade antes de registrar/i);
 }
 
 {
@@ -126,6 +127,10 @@ function harness(model) {
   ]);
   assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
   assert.equal(turn.registrations[0].activated, true);
+  assert.equal(model.requests[0].tool_choice, "auto");
+  assert.deepEqual(model.requests[1].tool_choice, { type: "function", function: { name: "read_process_contract" } });
+  assert.deepEqual(model.requests[2].tool_choice, { type: "function", function: { name: "read_process_contract" } });
+  assert.deepEqual(model.requests[3].tool_choice, { type: "function", function: { name: "formalize_acts" } });
 }
 
 {

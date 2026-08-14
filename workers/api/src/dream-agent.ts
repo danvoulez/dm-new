@@ -1,6 +1,6 @@
 import type { FormalizedActProposal, ProcessContractForLLM, ProcessSearchResult } from "./process-tools";
 
-export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado e nunca faça registro puro: busque o tipo de processo com poucas palavras, leia o contrato ativo e só então formalize conforme ele, citando seu hash. Se não encontrar processo, diga isso sem simular a consequência. Não invente identidade, autoridade, confirmação ou evidência. Registrar não significa ativar; somente o evaluator determina se a forma satisfez o processo.`;
+export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado e nunca faça registro puro: busque o tipo de processo com poucas palavras, leia o contrato ativo e só então formalize conforme ele, citando seu hash. Na formalização, envie somente os slots de source llm; não peça identidade antes de registrar e não envie slots de sessão, relógio ou contrato, nem vazios. O Worker os compõe e o evaluator informa qualquer ausência. Se não encontrar processo, diga isso sem simular a consequência. Não invente identidade, autoridade, confirmação ou evidência. Registrar não significa ativar; somente o evaluator determina se a forma satisfez o processo.`;
 
 const LOG_LINE_SLOT_PROPERTIES = {
   did: { type: "string" },
@@ -24,7 +24,7 @@ const FORMALIZED_ACT_SCHEMA = {
 export const DREAM_TOOL_DEFINITIONS = [
   { name: "search_processes", description: "Primeiro passo obrigatório quando a pessoa pede uma consequência. Busque com poucas palavras que nomeiem o tipo de processo, não com a frase inteira.", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
   { name: "read_process_contract", description: "Lê as regras e o hash registrado de um processo antes da formalização.", parameters: { type: "object", required: ["process_id"], properties: { process_id: { type: "string" } } } },
-  { name: "formalize_acts", description: "Registra uma ou mais intenções. Registro puro, sem process_id, só vale para pedido explícito de guardar um fato sem consequência. Consequência exige o contrato lido e citado.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
+  { name: "formalize_acts", description: "Registra uma ou mais intenções. Envie só did/this em slots; nunca envie identidade, confirmação, instante, continuidades ou status. O Worker preenche essas fontes e registra mesmo se o evaluator depois marcar incompleto. Registro puro, sem process_id, só vale para pedido explícito de guardar um fato sem consequência.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
   { name: "get_case", description: "Consulta um caso existente sem criar LogLine.", parameters: { type: "object", required: ["hash"], properties: { hash: { type: "string" } } } },
   { name: "get_pendencies", description: "Consulta pendências sem criar LogLine.", parameters: { type: "object", properties: {} } },
 ] as const;
@@ -42,7 +42,7 @@ export type DreamToolCall = { id: string; name: string; arguments: Record<string
 export type DreamModelRequest = {
   messages: DreamMessage[];
   tools: typeof DREAM_TOOL_DEFINITIONS;
-  tool_choice: "auto";
+  tool_choice: "auto" | { type: "function"; function: { name: string } };
 };
 
 export type DreamModelResponse = { content?: string; tool_calls?: DreamToolCall[] };
@@ -107,9 +107,13 @@ export async function runDreamTurn(
   const toolTrace: Array<{ name: string; ok: boolean; code?: string }> = [];
   const readContracts = new Map<string, string>();
   let processIntentObserved = false;
+  let requiredTool: string | undefined;
 
   for (let turn = 0; turn < 10; turn += 1) {
-    const response = await deps.model.complete({ messages, tools: DREAM_TOOL_DEFINITIONS, tool_choice: "auto" });
+    const toolChoice: DreamModelRequest["tool_choice"] = requiredTool
+      ? { type: "function", function: { name: requiredTool } }
+      : "auto";
+    const response = await deps.model.complete({ messages, tools: DREAM_TOOL_DEFINITIONS, tool_choice: toolChoice });
     const calls = Array.isArray(response.tool_calls) ? response.tool_calls : [];
     if (!calls.length) {
       const reply = String(response.content ?? "").trim();
@@ -127,13 +131,17 @@ export async function runDreamTurn(
         if (call.name === "search_processes") {
           processIntentObserved = true;
           result = await deps.searchProcesses(String(args.query ?? ""));
+          requiredTool = Array.isArray(result) && result.length > 0 ? "read_process_contract" : undefined;
         } else if (call.name === "read_process_contract") {
           processIntentObserved = true;
           const processId = String(args.process_id ?? "");
           result = await deps.readProcessContract(processId);
           const detail = object(result);
           const registeredHash = String(detail.registered_hash ?? "");
-          if (detail.citable === true && /^[0-9a-f]{64}$/.test(registeredHash)) readContracts.set(processId, registeredHash);
+          if (detail.citable === true && /^[0-9a-f]{64}$/.test(registeredHash)) {
+            readContracts.set(processId, registeredHash);
+            requiredTool = "formalize_acts";
+          }
         } else if (call.name === "formalize_acts") {
           const acts = Array.isArray(args.acts) ? args.acts.map((item) => object(item) as FormalizedActProposal) : [];
           if (!acts.length) throw Object.assign(new Error("formalize_acts requires at least one act"), { code: "acts_required" });
@@ -163,6 +171,9 @@ export async function runDreamTurn(
         const failure = processError(error);
         failureCode = String(failure.code);
         result = { error: failure };
+        if (call.name === "formalize_acts" && processIntentObserved) {
+          requiredTool = readContracts.size > 0 ? "formalize_acts" : "read_process_contract";
+        }
       }
       toolTrace.push({ name: call.name, ok, ...(failureCode ? { code: failureCode } : {}) });
       messages.push({
