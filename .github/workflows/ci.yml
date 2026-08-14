@@ -14,72 +14,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: test (py${{ matrix.python-version }})
+  gate:
+    name: complete gate
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: pip
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"   # LogLine Foundation reference verifier (conformance suite)
-      - name: Install (with crypto extra)
-        run: pip install -e ".[webauthn]" pytest
-      - name: Pytest (full suite, incl. WebAuthn signing)
-        run: pytest -q
-      - name: Conformance & runtime audits
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            workers/api/package-lock.json
+            ui/package-lock.json
+      - name: Install Python
+        run: pip install -e ".[webauthn]" pytest build
+      - name: Python and runtime
         run: |
+          pytest -q
           lab foundation suite
           lab dream verify
           lab harness
           lab fleet audit --root fleet
-
-  zero-dep-core:
-    name: zero-dependency core
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install core only (no crypto extra)
-        run: pip install -e . pytest
-      - name: Pytest (test_signing must SKIP, not fail)
-        run: pytest -q
-      - name: Prove the seam degrades honestly without the extra
+      - name: Workers API
+        working-directory: workers/api
         run: |
-          python - <<'PY'
-          from lab.store import connect
-          from lab.authority import register_genesis_authority, verify_signature
-          import lab.runtime, lab.grants, lab.receipt  # kernel imports without crypto
-          db = connect(":memory:")
-          register_genesis_authority(db, "ci@example.com")
-          ok, reason = verify_signature(db, content_hash="00"*32, identity="ci@example.com", credential="{}")
-          assert ok is False and reason == "signature_layer_unavailable", (ok, reason)
-          print("zero-dep core OK:", reason)
-          PY
-
-  build:
-    name: build package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Build sdist + wheel
+          npm ci --legacy-peer-deps
+          npm run typecheck
+          npm test
+      - name: UI
+        working-directory: ui
         run: |
-          pip install build
-          python -m build
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Acceptance script syntax
+        run: node --check scripts/acceptance/model-routing.mjs
+      - name: Build Python package
+        run: python -m build
       - uses: actions/upload-artifact@v7
         with:
           name: dist

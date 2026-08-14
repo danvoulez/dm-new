@@ -30,6 +30,7 @@ jobs:
       - run: lab foundation suite
       - run: lab dream verify
       - run: lab harness
+      - run: lab fleet audit --root fleet
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -38,13 +39,16 @@ jobs:
         run: |
           npm ci
           npm run typecheck
-          npm run build
           npm test
+          npm run build
       - name: Workers API check
         working-directory: workers/api
         run: |
           npm ci --legacy-peer-deps
-          npx tsc -p tsconfig.json --noEmit
+          npm run typecheck
+          npm test
+      - name: Acceptance script syntax
+        run: node --check scripts/acceptance/model-routing.mjs
 
   migrate:
     name: migrate Postgres (ledger)
