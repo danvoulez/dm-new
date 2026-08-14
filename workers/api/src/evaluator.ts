@@ -1,6 +1,6 @@
-import { evaluateSlot, type SlotEvaluation } from "./activation-predicates";
-import { effectiveDangerTier, type ProcessContract, type Slot } from "./contracts";
-import { SLOTS } from "./receipt";
+import { evaluateSlot, type SlotEvaluation } from "./activation-predicates.ts";
+import { effectiveDangerTier, type ProcessContract, type Slot } from "./contracts.ts";
+import { SLOTS } from "./receipt.ts";
 
 export type Evaluation = Record<string, unknown> & {
   activate: boolean;
