@@ -56,14 +56,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      MIGRATE_TOKEN: ${{ secrets.MIGRATE_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - name: Apply migrations via Hyperdrive (ipv6-safe, fallback to psql)
         run: |
           echo "Trying Hyperdrive migrate via Worker (ipv6-safe)..."
           # Worker is already deployed from previous run, try it first (Cloudflare has ipv6)
-          HTTP_CODE=$(curl -s -o /tmp/migrate.json -w "%{http_code}" -X POST https://api.carbonlab.work/api/migrate -H "x-migrate-token: ${SUPABASE_SECRET_KEY:-$SUPABASE_DB_URL}" || echo "000")
+          if [ -z "$MIGRATE_TOKEN" ]; then echo "MIGRATE_TOKEN is required"; exit 1; fi
+          HTTP_CODE=$(curl -s -o /tmp/migrate.json -w "%{http_code}" -X POST https://api.carbonlab.work/api/migrate -H "x-migrate-token: ${MIGRATE_TOKEN}" || echo "000")
           cat /tmp/migrate.json 2>/dev/null | head -c 500; echo " HTTP:$HTTP_CODE"
           if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/migrate.json; then
             echo "Hyperdrive migrate succeeded"
