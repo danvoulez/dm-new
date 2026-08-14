@@ -31,9 +31,9 @@ test("accepts only an explicit selectable model with an unexpired dream-agent.v1
   assert.throws(() => requireExplicitCatalogModel(catalog, "local/qwen", new Date("2026-08-14T10:21:00.000Z")), (error) => error.code === "model_certification_expired");
 });
 
-test("does not retry a failed tunnel request through another hidden transport", async () => {
+test("does not retry a failed canonical request through another hidden transport", async () => {
   let calls = 0;
-  const response = await goldenBridgeFetch({ GOLDEN_BRIDGE_TUNNEL_ID: "tunnel", GOLDEN_BRIDGE_URL: "https://inference.example" }, "/v1/models", {}, async () => {
+  const response = await goldenBridgeFetch({ GOLDEN_BRIDGE_URL: "https://inference.example" }, "/v1/models", {}, async () => {
     calls += 1;
     return new Response("unavailable", { status: 503 });
   });
@@ -41,7 +41,7 @@ test("does not retry a failed tunnel request through another hidden transport", 
   assert.equal(calls, 1);
 });
 
-test("sends Cloudflare Access credentials on the selected tunnel transport", async () => {
+test("uses the canonical public hostname with Cloudflare Access credentials", async () => {
   let observed;
   const response = await goldenBridgeFetch({
     GOLDEN_BRIDGE_TUNNEL_ID: "tunnel",
@@ -54,8 +54,8 @@ test("sends Cloudflare Access credentials on the selected tunnel transport", asy
   });
 
   assert.equal(response.status, 200);
-  assert.equal(observed.url, "https://tunnel.cfargotunnel.com/v1/models");
-  assert.equal(observed.headers.Host, "inference.example");
+  assert.equal(observed.url, "https://inference.example/v1/models");
+  assert.equal(observed.headers.Host, undefined);
   assert.equal(observed.headers["CF-Access-Client-Id"], "access-id");
   assert.equal(observed.headers["CF-Access-Client-Secret"], "access-secret");
 });

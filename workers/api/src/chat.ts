@@ -24,7 +24,6 @@ export type ChatEnv = WebAuthnEnv & {
   GOLDEN_BRIDGE_URL?: string;
   GOLDEN_BRIDGE_ACCESS_ID?: string;
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
-  GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
 
 type ConversationRow = { role: "user" | "assistant"; message: string; created_at: string };
