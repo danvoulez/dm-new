@@ -4,9 +4,19 @@ organ: law
 # Registers an OAuth 2.1 client against the Supabase Auth admin API. The kernel
 # adapter is a dry-run boundary (external_effect: false); the real POST happens at
 # the edge (tools/register_oauth_client.py), which needs the project secret key.
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita o cliente OAuth", source: session, predicate: who.authorized}
+    did: {meaning: "registro OAuth admitido", source: llm, predicate: did.allowed, values: [register_oauth_client]}
+    this: {meaning: "cliente OAuth a registrar", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do pedido", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma o cliente", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após registrar o cliente", source: contract, predicate: if_ok.compatible, values: [oauth-client.v1]}
+    if_doubt: {meaning: "continuidade se o registro não for seguro", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial do pedido", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 adapters: [oauth-client]
 danger_tier: L3

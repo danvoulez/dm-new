@@ -34,6 +34,16 @@ def _contract_row(contract: ProcessContract) -> dict[str, Any]:
         "required_grants": list(contract.required_grants),
         "doubt_path": contract.doubt_path,
         "required_slots": list(contract.required_slots),
+        "slot_rules": {
+            slot: {
+                "meaning": rule.meaning,
+                "source": rule.source,
+                "predicate": rule.predicate,
+                **({"values": list(rule.values)} if rule.values else {}),
+            }
+            for slot, rule in contract.slot_rules.items()
+        },
+        "activation_rules_explicit": contract.activation_rules_explicit,
         "must_include": list(contract.must_include),
         "optional_aux": list(contract.optional_aux),
     }
@@ -48,6 +58,8 @@ def build_process_catalog(root: str | Path = "processes") -> dict[str, Any]:
 def _readiness(contract: ProcessContract) -> tuple[str, str]:
     if contract.status != "active":
         return "not-runnable", f"process status is {contract.status}"
+    if not contract.activation_rules_explicit or any(slot not in contract.slot_rules for slot in contract.required_slots):
+        return "contract-only", "activation ritual lacks explicit semantic rules"
     if contract.danger_tier in DANGEROUS_BLOCKED:
         return "blocked", "requires grant/budget/sandbox"
     missing_adapters = [adapter for adapter in contract.adapters if adapter not in REGISTRY]

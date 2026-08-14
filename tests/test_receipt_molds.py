@@ -18,7 +18,13 @@ MOLD_FAMILIES = {
     "doubt.no_adapter_configured": {"no_adapter_configured", "adapter_not_registered"},
     "doubt.dispatch_mismatch": {"dispatch_mismatch"},
     "doubt.adapter_rejected": {"adapter_rejected"},
-    "doubt.contract": {"no_matching_process_contract", "process_not_active", "incomplete"},
+    "doubt.contract": {
+        "unknown_process", "process_route_mismatch", "process_not_active", "incomplete",
+        "activation_rules_not_explicit", "did_not_admitted", "confirmed_by_not_authorized",
+        "this_not_canonical", "this_not_content_hash", "when_invalid", "when_not_future",
+        "confirmation_evidence_invalid", "if_ok_incompatible", "if_doubt_incompatible",
+        "if_not_incompatible", "status_initial_invalid", "unknown_predicate",
+    },
     "doubt.grant_required": {"missing_required_grant"},
     "doubt.grant_invalid": {
         "grant_not_found", "grant_subject_mismatch", "grant_process_mismatch",
@@ -38,11 +44,21 @@ REQUIRED_DOUBT_KEYS = {"who", "did", "this", "when", "confirmed_by", "status", "
 
 
 def full(**extra):
+    process_id = extra.get('process_id', 'memory-register.v1')
+    admitted_did = {
+        'attention-raise.v1': 'raise_attention',
+        'memory-register.v1': 'registered',
+        'projection-build.v1': 'build_projection',
+        'worker-run.v1': 'run_worker',
+    }.get(process_id, 'registered')
     base = {
-        'who': 'tester', 'did': 'registered', 'this': 'x', 'when': '2026-06-22T00:00:00Z',
-        'confirmed_by': 'test', 'if_ok': 'memory-register.v1', 'if_doubt': 'attention-raise.v1',
-        'if_not': 'stop', 'status': 'registered',
+        'who': 'tester', 'did': admitted_did, 'this': 'x', 'when': '2026-06-22T00:00:00Z',
+        'confirmed_by': 'test', 'if_ok': process_id or 'memory-register.v1',
+        'if_doubt': 'attention-raise.v1', 'if_not': 'stop', 'status': 'registered',
+        'process_id': process_id,
     }
+    if process_id == 'projection-build.v1':
+        base['projection_spec'] = 'runtime'
     base.update(extra)
     return base
 
@@ -58,7 +74,7 @@ def test_mold_families_partition_the_canonical_vocabulary():
 
 def test_contract_only_doubt_conforms_to_mold():
     db = connect(":memory:")
-    append(db, full(if_ok="attention-raise.v1"))
+    append(db, full(process_id="attention-raise.v1"))
     selected = receiver_select(db, "attention-raise.v1")
     doubt = get(db, selected[0]["doubt"])
     assert REQUIRED_DOUBT_KEYS <= set(doubt)
@@ -68,7 +84,7 @@ def test_contract_only_doubt_conforms_to_mold():
 
 def test_dispatch_mismatch_doubt_conforms_to_mold():
     db = connect(":memory:")
-    act = append(db, full(if_ok="projection-build.v1"))
+    act = append(db, full(process_id="projection-build.v1"))
     queue_add(db, act["id"], "projection-build.v1", adapter="receipt")  # corrupt row
     result = get(db, executor_run_once(db)["result_hash"])
     assert result["status"] == DOUBT_STATUS

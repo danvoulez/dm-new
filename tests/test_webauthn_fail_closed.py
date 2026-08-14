@@ -17,7 +17,7 @@ from lab.store import append, connect, get
 
 def full(**extra):
     base = {
-        'who': 'tester', 'did': 'registered', 'this': 'x', 'when': '2026-06-22T00:00:00Z',
+        'who': 'tester', 'did': 'run_worker', 'this': 'x', 'when': '2026-06-22T00:00:00Z',
         'confirmed_by': 'test', 'if_ok': 'worker-run.v1', 'if_doubt': 'attention-raise.v1',
         'if_not': 'stop', 'status': 'registered',
     }

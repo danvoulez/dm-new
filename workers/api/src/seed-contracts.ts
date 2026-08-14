@@ -31,6 +31,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que pede atenção",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "ato de atenção admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "raise_attention"
+          ]
+        },
+        "this": {
+          "meaning": "objeto que requer atenção",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do pedido",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o pedido",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após acolhimento",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a atenção não puder ser resolvida",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do pedido",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -77,6 +144,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita fechamento",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "ato de fechamento admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "close_evidence"
+          ]
+        },
+        "this": {
+          "meaning": "processo ou resultado a fechar",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do fechamento",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma a evidência",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após fechamento",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "evidence-closure.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a evidência for insuficiente",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do pedido",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -123,6 +257,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita o check",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "ato GitHub admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "create_github_check"
+          ]
+        },
+        "this": {
+          "meaning": "commit ou execução alvo",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do check",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o check",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após check",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "github-check.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se o check não puder ser provado",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do check",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -169,6 +370,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita inferência",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "pedido de inferência admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "requested_inference"
+          ]
+        },
+        "this": {
+          "meaning": "tarefa canônica de inferência",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do pedido",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o pedido",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após inferência",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "inference.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a inferência não for confiável",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade quando não há modelo",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "no_model"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do pedido",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "candidate"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -220,6 +488,75 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que registra a memória",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "ato explícito de registro",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "registered"
+          ]
+        },
+        "this": {
+          "meaning": "memória ou fato registrado",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante do registro",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o registro",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após registrar",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "memory-register.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se o registro exigir atenção",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop",
+            "clock.skip"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do registro",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered",
+            "scheduled"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -268,6 +605,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita a notificação",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "ato de notificação admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "send_notification"
+          ]
+        },
+        "this": {
+          "meaning": "destinatário ou evento notificado",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro da notificação",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o envio",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após envio",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "notification.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se o envio não puder ser provado",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial da notificação",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -314,6 +718,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita o cliente OAuth",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "registro OAuth admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "register_oauth_client"
+          ]
+        },
+        "this": {
+          "meaning": "cliente OAuth a registrar",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do pedido",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma o cliente",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após registrar o cliente",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "oauth-client.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se o registro não for seguro",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do pedido",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -365,7 +836,77 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
-      "must_include": [],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita a projeção",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "pedido de projeção admitido",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "request_projection",
+            "build_projection"
+          ]
+        },
+        "this": {
+          "meaning": "alvo canônico da projeção",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do pedido",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma a projeção",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após materializar",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "projection-build.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a projeção não puder ser provada",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do pedido",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
+      "must_include": [
+        "projection_spec"
+      ],
       "optional_aux": [],
       "allowed_who": [],
       "required_grants": [],
@@ -415,6 +956,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita a delegação",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "delegação admitida",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "route_to_devin"
+          ]
+        },
+        "this": {
+          "meaning": "trabalho canônico a delegar",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro da delegação",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma a delegação",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após delegar",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "route-to-devin.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a delegação não for segura",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial da delegação",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [
         "target_content_hash",
         "target_process"
@@ -466,6 +1074,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita o worker",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "execução de worker admitida",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "run_worker"
+          ]
+        },
+        "this": {
+          "meaning": "trabalho canônico do worker",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do trabalho",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma a execução",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após execução",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "worker-run.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a execução não for segura",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do trabalho",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -514,6 +1189,73 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "autoridade que solicita o workflow",
+          "source": "session",
+          "predicate": "who.authorized",
+          "values": []
+        },
+        "did": {
+          "meaning": "execução de workflow admitida",
+          "source": "llm",
+          "predicate": "did.allowed",
+          "values": [
+            "run_workflow"
+          ]
+        },
+        "this": {
+          "meaning": "workflow canônico a executar",
+          "source": "llm",
+          "predicate": "this.canonical",
+          "values": []
+        },
+        "when": {
+          "meaning": "instante de registro do workflow",
+          "source": "clock",
+          "predicate": "when.registered_at",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "autoridade que confirma a orquestração",
+          "source": "session",
+          "predicate": "confirmed_by.authority",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "continuidade após orquestração",
+          "source": "contract",
+          "predicate": "if_ok.compatible",
+          "values": [
+            "workflow-run.v1"
+          ]
+        },
+        "if_doubt": {
+          "meaning": "continuidade se a orquestração não for segura",
+          "source": "contract",
+          "predicate": "if_doubt.compatible",
+          "values": [
+            "attention-raise.v1"
+          ]
+        },
+        "if_not": {
+          "meaning": "continuidade negativa",
+          "source": "contract",
+          "predicate": "if_not.compatible",
+          "values": [
+            "stop"
+          ]
+        },
+        "status": {
+          "meaning": "estado inicial do workflow",
+          "source": "contract",
+          "predicate": "status.initial",
+          "values": [
+            "registered"
+          ]
+        }
+      },
+      "activation_rules_explicit": true,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],

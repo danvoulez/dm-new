@@ -65,6 +65,82 @@ def write_nested_contract(root):
     return path
 
 
+def write_semantic_contract(root):
+    root.mkdir(exist_ok=True)
+    path = root / "projection-semantic.v1.yml"
+    path.write_text(
+        "\n".join(
+            [
+                "process_id: projection-semantic.v1",
+                "title: Projection Semantic Contract",
+                "status: active",
+                "activation_ritual:",
+                "  slots:",
+                "    who:",
+                '      meaning: "autoridade solicitante"',
+                "      source: session",
+                "      predicate: who.authorized",
+                "    did:",
+                '      meaning: "ato admitido"',
+                "      source: llm",
+                "      predicate: did.allowed",
+                "      values: [request_projection]",
+                "    this:",
+                '      meaning: "alvo canônico da projeção"',
+                "      source: llm",
+                "      predicate: this.canonical",
+                "    when:",
+                '      meaning: "instante de registro"',
+                "      source: clock",
+                "      predicate: when.registered_at",
+                "    confirmed_by:",
+                '      meaning: "confirmação do rito"',
+                "      source: session",
+                "      predicate: confirmed_by.authority",
+                "    if_ok:",
+                '      meaning: "continuidade de sucesso"',
+                "      source: contract",
+                "      predicate: if_ok.compatible",
+                "    if_doubt:",
+                '      meaning: "continuidade de dúvida"',
+                "      source: contract",
+                "      predicate: if_doubt.compatible",
+                "    if_not:",
+                '      meaning: "continuidade negativa"',
+                "      source: contract",
+                "      predicate: if_not.compatible",
+                "    status:",
+                '      meaning: "estado inicial"',
+                "      source: contract",
+                "      predicate: status.initial",
+                "  required_aux: [projection_spec]",
+                "  optional_aux: [parent_projection_hashes]",
+            ]
+        )
+    )
+    return path
+
+
+def test_load_contract_preserves_activation_slot_semantics(tmp_path):
+    contract = load_contract(write_semantic_contract(tmp_path))
+
+    assert contract.slot_rules["who"].predicate == "who.authorized"
+    assert contract.slot_rules["who"].source == "session"
+    assert contract.slot_rules["did"].values == ("request_projection",)
+    assert contract.slot_rules["this"].meaning == "alvo canônico da projeção"
+    assert contract.required_slots == (
+        "who",
+        "did",
+        "this",
+        "when",
+        "confirmed_by",
+        "if_ok",
+        "if_doubt",
+        "if_not",
+        "status",
+    )
+
+
 def test_load_contract_supports_nested_spec_shape(tmp_path):
     path = write_nested_contract(tmp_path)
 
@@ -117,6 +193,7 @@ def test_evaluator_uses_nested_required_aux(tmp_path):
         "if_doubt": "attention-raise.v1",
         "if_not": "stop",
         "status": "registered",
+        "process_id": "nested.v1",
     }
 
     out = evaluate(receipt, "nested.v1", catalog=load_catalog(tmp_path))

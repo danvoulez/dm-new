@@ -13,16 +13,16 @@ requires_target_hash: false
 idempotency: none
 evidence_required: false
 activation_ritual:
-  required_slots:
-    who: who.authorized
-    did: did.canonical
-    this: this.canonical
-    when: when.registered_at
-    confirmed_by: confirmed_by.evidence_hash
-    if_ok: if_ok.compatible
-    if_doubt: if_doubt.compatible
-    if_not: if_not.compatible
-    status: status.registered
+  slots:
+    who: {meaning: "autoridade solicitante", source: session, predicate: who.authorized}
+    did: {meaning: "ato admitido", source: llm, predicate: did.allowed, values: [example_act]}
+    this: {meaning: "alvo canônico", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "confirmação do rito", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade de sucesso", source: contract, predicate: if_ok.compatible}
+    if_doubt: {meaning: "continuidade de dúvida", source: contract, predicate: if_doubt.compatible}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible}
+    status: {meaning: "estado inicial", source: contract, predicate: status.initial}
   required_aux: []
   optional_aux: []
 authority_scope:

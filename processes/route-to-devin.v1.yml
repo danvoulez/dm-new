@@ -1,9 +1,19 @@
 process_id: route-to-devin.v1
 status: active
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: [target_content_hash, target_process]
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita a delegação", source: session, predicate: who.authorized}
+    did: {meaning: "delegação admitida", source: llm, predicate: did.allowed, values: [route_to_devin]}
+    this: {meaning: "trabalho canônico a delegar", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro da delegação", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma a delegação", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após delegar", source: contract, predicate: if_ok.compatible, values: [route-to-devin.v1]}
+    if_doubt: {meaning: "continuidade se a delegação não for segura", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
+    status: {meaning: "estado inicial da delegação", source: contract, predicate: status.initial, values: [registered]}
+  required_aux: [target_content_hash, target_process]
+  optional_aux: []
 authority_scope: []
 adapters: [route_to_devin]
 # §21 — routing work to Devin (an external autonomous coding agent) is a dangerous door,

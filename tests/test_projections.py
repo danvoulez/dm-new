@@ -149,6 +149,7 @@ def test_projection_process_materializes_visible_projection_through_executor():
         "when": "2026-08-12T00:00:00Z", "confirmed_by": "tester",
         "if_ok": "projection-build.v1", "if_doubt": "attention-raise.v1",
         "if_not": "stop", "status": "registered", "projection_spec": "runtime_visible",
+        "process_id": "projection-build.v1",
     })
     queue_add(db, source["id"], "projection-build.v1", adapter="projection")
     closed = executor_run_once(db)

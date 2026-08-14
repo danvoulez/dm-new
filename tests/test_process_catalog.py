@@ -20,21 +20,21 @@ def test_process_catalog_is_generated_from_contract_files():
     assert worker["adapters"] == ["worker_run"]
 
 
-def test_runnable_processes_reflect_adapter_and_grant_readiness():
+def test_explicit_processes_expose_their_actual_runtime_readiness():
     runnable = build_runnable_processes("processes")
     rows = {item["process_id"]: item for item in runnable["processes"]}
 
-    assert rows["memory-register.v1"]["status"] == "runnable"
-    assert rows["projection-build.v1"]["status"] == "runnable"
-    assert rows["inference.v1"]["status"] == "runnable"
-    assert rows["worker-run.v1"]["status"] == "blocked"
-    assert rows["worker-run.v1"]["reason"] == "requires grant/budget/sandbox"
-    assert rows["workflow-run.v1"]["status"] == "blocked"
-    # §21 — route-to-devin is now L4 (dangerous external delegation): grant-gated, blocked.
-    assert rows["route-to-devin.v1"]["status"] == "blocked"
-    assert rows["route-to-devin.v1"]["reason"] == "requires grant/budget/sandbox"
-    # §20 — notification is now L5 (irreversible outbound): blocked.
-    assert rows["notification.v1"]["status"] == "blocked"
+    for process_id in (
+        "memory-register.v1",
+        "projection-build.v1",
+        "inference.v1",
+        "oauth-client.v1",
+    ):
+        assert rows[process_id]["status"] == "runnable"
+        assert rows[process_id]["reason"] == "contract active and adapter configured"
+    for process_id in ("worker-run.v1", "workflow-run.v1", "route-to-devin.v1", "notification.v1"):
+        assert rows[process_id]["status"] == "blocked"
+        assert rows[process_id]["reason"] == "requires grant/budget/sandbox"
 
 
 def test_rendered_catalogs_include_generated_warning_and_tables():

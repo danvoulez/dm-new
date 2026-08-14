@@ -274,7 +274,7 @@ def test_executor_reaches_adapter_only_with_valid_signed_grant():
     record_grant_signoff(db, g["id"], signer="dan@minilab.work", credential=_sign(priv, content_hash=g["id"]))
 
     src = append(db, {
-        "who": "tester", "did": "registered", "this": "runtime", "when": "2026-06-22T00:00:00Z",
+        "who": "tester", "did": "run_worker", "this": "runtime", "when": "2026-06-22T00:00:00Z",
         "confirmed_by": "test", "if_ok": "worker-run.v1", "if_doubt": "attention-raise.v1",
         "if_not": "stop", "status": "registered", "process_id": "worker-run.v1", "grant_id": g["id"],
     })

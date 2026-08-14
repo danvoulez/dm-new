@@ -2,16 +2,19 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { CATALOG } from "./vocabulary";
 import { appendAct, withClient } from "./db";
-import { loadContracts, toProcessTypeView } from "./contracts";
+import { loadContracts } from "./contracts";
 import { evaluate } from "./evaluator";
 import { RegisterActivationError, registerFlow, registerResponse } from "./register-flow";
 import { candidatesView, caseView, executorRunOnce, nowView, pendenciesView, processesView, receiverSelect, resumeGrantSources } from "./runtime";
 import { canGenericRegisterDid } from "./control-plane";
 import { runChatTurn } from "./chat";
+import { ProcessToolError, readProcessContract, searchProcesses } from "./process-tools";
+import { ensureRegisteredContract } from "./contract-registration";
 import { authorityRecognized, getGrantStanding, listGrants, registerGrant, revokeGrant, validateGrantInput, type GrantInput } from "./grants";
 import { SEED_CONTRACTS } from "./seed-contracts";
 import { createEnrollmentOptions, createSignOptions, verifyEnrollment, verifyGrantSignoff } from "./webauthn";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
+import { fetchModelCatalog } from "./model-catalog";
 
 export type Env = {
   HYPERDRIVE: Hyperdrive;
@@ -29,26 +32,6 @@ export type Env = {
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
   GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
-
-const BRIDGE_DEFAULT = "https://inference.minilab.work";
-
-async function bridgeFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
-  const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
-  const host = new URL(publicBase).host;
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...(init.headers as Record<string, string> | undefined) };
-  if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
-    const response = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
-      ...init,
-      headers: { ...headers, Host: host },
-    });
-    if (response.ok) return response;
-  }
-  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
-    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
-    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
-  }
-  return fetch(`${publicBase}${path}`, { ...init, headers });
-}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -122,30 +105,44 @@ app.get("/api/vocabulary", (c) => {
 
 app.get("/api/models", async (c) => {
   try {
-    const response = await bridgeFetch(c.env, "/v1/models");
-    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-    return c.json(await response.json());
+    return c.json(await fetchModelCatalog(c.env));
   } catch (error) {
-    return c.json({ object: "list", data: [], error: `golden-bridge unavailable: ${errorText(error).slice(0, 200)}` }, 502);
+    const typed = error as { code?: string; action?: string };
+    return c.json({ object: "list", provider: "golden-bridge", sources: [], data: [], error: errorText(error), code: typed.code ?? "model_catalog_unavailable", action: typed.action }, 502);
   }
 });
 
 app.get("/v1/models", async (c) => {
   try {
-    const response = await bridgeFetch(c.env, "/v1/models");
-    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-    const body = await response.json() as { data?: unknown[] };
-    return c.json({ object: "list", data: body.data ?? [] });
+    return c.json(await fetchModelCatalog(c.env));
   } catch (error) {
-    return c.json({ object: "list", data: [], error: errorText(error).slice(0, 200) }, 502);
+    const typed = error as { code?: string; action?: string };
+    return c.json({ object: "list", provider: "golden-bridge", sources: [], data: [], error: errorText(error), code: typed.code ?? "model_catalog_unavailable", action: typed.action }, 502);
   }
 });
 
 app.get("/api/process-types", async (c) => {
   try {
-    const types = await withClient(c.env, async (client) => Array.from((await loadContracts(client)).values()).map(toProcessTypeView));
+    const query = c.req.query("query")?.trim() ?? "";
+    const types = await withClient(c.env, (client) => searchProcesses(client, query));
     return c.json({ count: types.length, types });
   } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.get("/api/process-types/:process_id", async (c) => {
+  try {
+    const detail = await withClient(c.env, (client) => readProcessContract(client, c.req.param("process_id")));
+    return c.json({
+      ...detail,
+      citation_state: detail.citable ? "citable" : "contract_not_citable",
+      runnable_for_llm: detail.citable && detail.danger.readiness === "runnable",
+    });
+  } catch (error) {
+    if (error instanceof ProcessToolError && error.code === "process_not_found") {
+      return c.json({ error: error.message, code: error.code }, 404);
+    }
     return c.json(dbFailure(error), 503);
   }
 });
@@ -283,7 +280,10 @@ app.post("/api/migrate", async (c) => {
         await client.query(
           `INSERT INTO public.process_contracts(process_id,title,contract,status,source_yml)
            VALUES ($1,$2,$3::jsonb,$4,$5)
-           ON CONFLICT(process_id) DO UPDATE SET title=excluded.title,contract=excluded.contract,status=excluded.status,source_yml=excluded.source_yml`,
+           ON CONFLICT(process_id) DO UPDATE SET
+             registered_hash=CASE WHEN public.process_contracts.contract=excluded.contract
+               THEN public.process_contracts.registered_hash ELSE NULL END,
+             title=excluded.title,contract=excluded.contract,status=excluded.status,source_yml=excluded.source_yml`,
           [seed.process_id, seed.title, JSON.stringify(seed.contract), seed.status, seed.source_yml],
         );
       }
@@ -294,6 +294,9 @@ app.post("/api/migrate", async (c) => {
           confirmed_by: genesis, if_ok: "authority-active.v1", if_doubt: "attention-raise.v1", if_not: "stop",
           status: "active", registered_by: genesis, genesis: true, note: "Worker bootstrap genesis",
         });
+      }
+      if (genesis) {
+        for (const seed of SEED_CONTRACTS) await ensureRegisteredContract(client, seed, genesis);
       }
       const count = await client.query<{ count: number }>("SELECT count(*)::int AS count FROM public.process_contracts");
       return { count: count.rows[0]?.count ?? 0, genesis: genesis || null };
@@ -319,57 +322,27 @@ app.post("/api/chat/turn", async (c) => {
       message,
       conversation_id: conversationId,
       model: body?.model?.trim() || undefined,
+      identity: c.req.header("cf-access-authenticated-user-email")?.trim() || undefined,
     }));
     return c.json(result);
   } catch (error) {
     const detail = errorText(error);
+    const typed = error as { code?: unknown; status?: unknown; action?: unknown };
+    if (typeof typed?.code === "string" && typeof typed?.status === "number" && typed.status >= 400 && typed.status <= 599) {
+      return c.json({
+        error: detail,
+        code: typed.code,
+        action: typeof typed.action === "string" ? typed.action : "Escolha outro modelo disponível na Golden Bridge.",
+      }, typed.status as 400);
+    }
     if (/chat_turns|projection_docs|no such table/i.test(detail)) {
       return c.json({ error: "chat projection store is not migrated", code: "not_migrated", detail: detail.slice(0, 300) }, 503);
     }
     if (/golden_bridge|model_catalog|llm_|fetch failed|network/i.test(detail)) {
-      return c.json({ error: "modelo indisponível, tente depois", code: "model_unavailable", detail: detail.slice(0, 300) }, 502);
+      return c.json({ error: detail.slice(0, 300), code: "model_unavailable", action: "Escolha outro modelo disponível na Golden Bridge." }, 502);
     }
     if (/process_contracts|runtime_queue|logline_acts|connect/i.test(detail)) return c.json(dbFailure(error), 503);
     return c.json({ error: "chat turn failed safely", code: "chat_turn_failed", detail: detail.slice(0, 300) }, 500);
-  }
-});
-
-// Legacy for one release. New UI will move to /api/chat/turn in W3.
-app.post("/api/chat/compile", async (c) => {
-  const body = await c.req.json().catch(() => null) as { intent?: string; model?: string } | null;
-  const intent = body?.intent?.trim();
-  const requestedModel = body?.model?.trim();
-  if (!intent) return c.json({ error: "intent is required", code: "bad_request" }, 400);
-  try {
-    const catalog = await withClient(c.env, async (client) => Array.from((await loadContracts(client)).values()).map(toProcessTypeView));
-    const catalogText = catalog.map((type) => `${type.process_id} | ${type.title} | requires=[${type.requires.join(",")}] | accepts=[${type.accepts.join(",")}] | danger=${type.danger_tier} | readiness=${type.readiness}`).join("\n");
-    const prompt = `Compile the intent into exactly one registered process type.\n\nCATALOG (choose process_id only from here):\n${catalogText}\n\nINTENT: ${intent}\n\nAnswer with JSON only, no prose, no markdown fence:\n{"process_id":"<from catalog>","fields":{"<declared key>":"<value>"},"missing":["<required key absent from intent>"],"note":"<one short sentence in Portuguese>"}\nRules: fields keys must come only from that type's requires/accepts. Never invent who, when or confirmed_by. If the intent does not match any type, use \"process_id\":\"\" and explain in note.`;
-    const response = await bridgeFetch(c.env, "/v1/chat/completions", {
-      method: "POST",
-      body: JSON.stringify({ model: requestedModel || "mistral-nemo-q4", messages: [{ role: "user", content: prompt }], temperature: 0, max_tokens: 400 }),
-    });
-    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-    const completion = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const text = completion.choices?.[0]?.message?.content ?? "";
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return c.json({ error: "modelo nao devolveu JSON", code: "llm-invalid" }, 502);
-    const parsed = JSON.parse(match[0]) as { process_id?: string; fields?: Record<string, string>; note?: string };
-    const entry = catalog.find((type) => type.process_id === parsed.process_id);
-    if (!entry) return c.json({ suggestion: null, candidates: [], intent, note: parsed.note ?? "Nenhum tipo do catalogo serve." });
-    const allowed = new Set([...entry.requires, ...entry.accepts]);
-    const fields: Record<string, string> = {};
-    for (const [key, raw] of Object.entries(parsed.fields ?? {})) if (allowed.has(key)) fields[key] = String(raw).slice(0, 500);
-    const missing = entry.requires.filter((key) => !fields[key]);
-    const suggestion = { ...entry, fields, missing, citations: [], note: parsed.note, confidence: missing.length ? "medium" : "high" };
-    return c.json({
-      intent,
-      suggestion,
-      candidates: catalog.filter((type) => type.process_id !== entry.process_id).map((type) => ({ ...type, fields: {}, missing: type.requires, citations: [], confidence: "low" })),
-    });
-  } catch (error) {
-    const message = errorText(error);
-    if (/process_contracts|hyperdrive|connect/i.test(message)) return c.json(dbFailure(error), 503);
-    return c.json({ error: `golden-bridge unavailable: ${message.slice(0, 400)}`, code: "golden-bridge-unavailable" }, 502);
   }
 });
 

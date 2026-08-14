@@ -28,12 +28,12 @@ def call(db, method, path, body=None, query=None, read_only=False):
 COMPLETE = {
     "who": "dan", "did": "build_projection", "this": "lab", "confirmed_by": "dan",
     "if_ok": "projection-build.v1", "if_doubt": "attention-raise.v1", "if_not": "stop",
-    "status": "registered", "projection_spec": "estado",
+    "status": "registered", "projection_spec": "estado", "process_id": "projection-build.v1",
 }
 UNMATCHED = {
     "who": "dan", "did": "auditar", "this": "balanco-q3", "confirmed_by": "dan",
     "if_ok": "nao-existe-esse-tipo.v1", "if_doubt": "attention-raise.v1", "if_not": "stop",
-    "status": "registered",
+    "status": "registered", "process_id": "nao-existe-esse-tipo.v1",
 }
 
 
@@ -110,6 +110,8 @@ def test_process_types_carry_what_a_form_needs(db):
     assert "projection-build.v1" in types
     entry = types["projection-build.v1"]
     assert entry["runnable"] is True
+    assert entry["readiness"] == "runnable"
+    assert entry["readiness_reason"] == "contract active and adapter configured"
     assert entry["needs_approval"] is False
     assert "requires" in entry and "accepts" in entry
 

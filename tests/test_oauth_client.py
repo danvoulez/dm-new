@@ -33,6 +33,8 @@ def full(**extra):
 
 def passport_act(**extra):
     fields = {
+        "process_id": "oauth-client.v1",
+        "did": "register_oauth_client",
         "if_ok": "oauth-client.v1",
         "client_name": "LAB Passport",
         "redirect_uris": ["https://passport.minilab.work/auth/callback"],
@@ -45,11 +47,11 @@ def passport_act(**extra):
 
 # --- contract wiring ---------------------------------------------------------
 
-def test_contract_is_runnable():
-    """The contract + registered adapter make oauth-client.v1 runnable, not contract-only."""
+def test_explicit_contract_is_runnable_when_its_adapter_is_registered():
     runnable = {p["process_id"]: p for p in build_runnable_processes()["processes"]}
     assert "oauth-client.v1" in runnable
     assert runnable["oauth-client.v1"]["status"] == "runnable"
+    assert runnable["oauth-client.v1"]["reason"] == "contract active and adapter configured"
     assert runnable["oauth-client.v1"]["adapters"] == ["oauth-client"]
 
 

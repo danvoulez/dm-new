@@ -13,8 +13,17 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     let message = txt;
     if (txt) {
       try {
-        const parsed = JSON.parse(txt) as { error?: unknown; message?: unknown };
-        message = typeof parsed.error === "string" ? parsed.error : typeof parsed.message === "string" ? parsed.message : txt;
+        const parsed = JSON.parse(txt) as { error?: unknown; message?: unknown; action?: unknown };
+        const base = typeof parsed.error === "string"
+          ? parsed.error
+          : parsed.error && typeof parsed.error === "object" && "message" in parsed.error && typeof parsed.error.message === "string"
+            ? parsed.error.message
+            : typeof parsed.message === "string" ? parsed.message : txt;
+        const action = typeof parsed.action === "string"
+          ? parsed.action
+          : parsed.error && typeof parsed.error === "object" && "action" in parsed.error && typeof parsed.error.action === "string"
+            ? parsed.error.action : "";
+        message = action ? `${base} ${action}` : base;
       } catch {
         // Plain-text errors are already human-readable.
       }
@@ -111,26 +120,6 @@ export type GrantStanding = {
 export type CandidatesView = { count: number; candidates: Array<{ id: string; fingerprint: string | null; did: string; when: string; payload: unknown; citations: unknown[] }> };
 export type ProjectionsView = { count: number; note: string; projections: Array<{ projection_hash: string; fingerprint: string | null; spec: string; class: string; computed_at: string }> };
 
-export type ChatSuggestion = {
-  process_id: string;
-  title: string;
-  fields: Record<string, string>;
-  missing: string[];
-  citations: string[];
-  note?: string;
-  confidence: "high" | "medium" | "low";
-  runnable: boolean;
-  needs_approval: boolean;
-  irreversible: boolean;
-};
-
-export type ChatCompileResult = {
-  suggestion: ChatSuggestion | null;
-  candidates: ChatSuggestion[];
-  intent: string;
-  note?: string;
-};
-
 export type ProcessTypeCreate = {
   process_id: string;
   title: string;
@@ -140,7 +129,43 @@ export type ProcessTypeCreate = {
   description?: string;
 };
 
-export type ModelInfo = { id: string; provider: "local" | "cloudflare" | "vercel"; object: string; owned_by: string };
+export type ModelSource = {
+  id: "local" | "vercel" | "cloudflare";
+  label: string;
+  status: "available" | "degraded" | "not_configured";
+  checked_at: string;
+  model_count: number;
+  message?: string;
+};
+
+export type ModelInfo = {
+  id: string;
+  object: "model";
+  name: string;
+  source: ModelSource["id"];
+  upstream_model: string;
+  context_window?: number | null;
+  capabilities: Record<string, unknown>;
+  selectable: boolean;
+  certification: {
+    profile: "dream-agent.v1";
+    status: "current" | "failed";
+    certified_at: string;
+    expires_at: string;
+    checks: Record<"conversation" | "tool_call" | "tool_result" | "schema" | "system_prompt", boolean>;
+    reason?: string;
+  };
+};
+
+export type ModelCatalog = {
+  object: "list";
+  provider: "golden-bridge";
+  generated_at: string;
+  ttl_seconds: number;
+  certification_profile: "dream-agent.v1";
+  sources: ModelSource[];
+  data: ModelInfo[];
+};
 
 export type ChatRisk = "none" | "approval" | "irreversible";
 export type ChatAction =
@@ -155,6 +180,18 @@ export type ChatTurnResult = {
   reply: string;
   conversation_id: string;
   action?: ChatAction;
+  registrations?: RegistrationResult[];
+};
+
+export type RegistrationResult = {
+  registered: boolean;
+  id: string;
+  fingerprint?: string | null;
+  activated: boolean;
+  process_id?: string | null;
+  queued?: boolean;
+  waiting?: { code?: string; message?: string; action?: string; resolved_by?: string };
+  missing?: string[];
 };
 
 export const dmApi = {
@@ -177,9 +214,8 @@ export const dmApi = {
   revoke: (gid: string, body: { revoked_by: string }) => req<unknown>(`/api/grants/${gid}/revoke`, { method: "POST", body: JSON.stringify(body) }),
   createGrant: (body: Record<string, unknown>) => req<{ registered: boolean; grant_id: string; fingerprint: string | null }>(`/api/grants`, { method: "POST", body: JSON.stringify(body) }),
   advance: (body: Record<string, unknown>) => req<{ ran?: boolean; note?: string }>(`/api/advance`, { method: "POST", body: JSON.stringify(body) }),
-  register: (body: Record<string, unknown>) => req<{ registered: boolean; id: string; fingerprint: string | null; activated: boolean; process_id?: string | null; queued?: boolean; waiting?: { code?: string; message?: string; action?: string; resolved_by?: string }; missing?: string[] }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
-  chatCompile: (intent: string, model?: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent, model }) }),
+  register: (body: Record<string, unknown>) => req<RegistrationResult>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
   chatTurn: (message: string, conversation_id?: string, model?: string) => req<ChatTurnResult>(`/api/chat/turn`, { method: "POST", body: JSON.stringify({ message, ...(conversation_id ? { conversation_id } : {}), ...(model ? { model } : {}) }) }),
   createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
-  models: () => req<{ object: string; data: ModelInfo[] }>(`/api/models`),
+  models: () => req<ModelCatalog>(`/api/models`),
 };

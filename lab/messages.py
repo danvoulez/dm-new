@@ -23,9 +23,13 @@ OPERATOR = "operator"
 # reason -> (message template, action label, who can resolve it)
 CATALOG: dict[str, tuple[str, str, str]] = {
     # -- contract and activation ------------------------------------------------
-    "no_matching_process_contract": (
-        "Ficou registrado, mas não há um tipo de solicitação que case com isto.",
+    "unknown_process": (
+        "Ficou registrado, mas o tipo de processo solicitado não existe no catálogo atual.",
         "Escolher tipo", USER,
+    ),
+    "process_route_mismatch": (
+        "O processo endereçado pela rota não é o mesmo declarado no registro. Nada foi executado.",
+        "Ver integração", OPERATOR,
     ),
     "process_not_active": (
         "Este tipo de solicitação está desativado no momento.",
@@ -34,6 +38,58 @@ CATALOG: dict[str, tuple[str, str, str]] = {
     "incomplete": (
         "Para andar, falta: {campos}.",
         "Completar", USER,
+    ),
+    "activation_rules_not_explicit": (
+        "Este tipo existe, mas ainda não publicou regras semânticas completas para ativação.",
+        "Avisar responsável", OPERATOR,
+    ),
+    "did_not_admitted": (
+        "O ato informado não é admitido por este tipo de processo.",
+        "Reformular pedido", USER,
+    ),
+    "confirmed_by_not_authorized": (
+        "A confirmação informada não pertence a uma autoridade admitida por este processo.",
+        "Confirmar novamente", USER,
+    ),
+    "this_not_canonical": (
+        "O alvo informado não é uma referência canônica válida para este processo.",
+        "Corrigir alvo", USER,
+    ),
+    "this_not_content_hash": (
+        "Este processo exige que o alvo seja um hash de conteúdo de 64 caracteres.",
+        "Corrigir alvo", USER,
+    ),
+    "when_invalid": (
+        "O instante informado não é uma data ISO 8601 com fuso horário.",
+        "Corrigir data", USER,
+    ),
+    "when_not_future": (
+        "Este processo exige um instante futuro, mas a data informada já passou.",
+        "Escolher outra data", USER,
+    ),
+    "confirmation_evidence_invalid": (
+        "A confirmação não contém o hash de evidência exigido por este processo.",
+        "Fornecer evidência", USER,
+    ),
+    "if_ok_incompatible": (
+        "A continuidade de sucesso não corresponde ao contrato citado.",
+        "Ver composição", OPERATOR,
+    ),
+    "if_doubt_incompatible": (
+        "A continuidade de dúvida não corresponde ao contrato citado.",
+        "Ver composição", OPERATOR,
+    ),
+    "if_not_incompatible": (
+        "A continuidade negativa não corresponde ao contrato citado.",
+        "Ver composição", OPERATOR,
+    ),
+    "status_initial_invalid": (
+        "O estado inicial não é admitido pelo contrato deste processo.",
+        "Ver composição", OPERATOR,
+    ),
+    "unknown_predicate": (
+        "O contrato usa um predicado de ativação que este runtime não implementa.",
+        "Corrigir contrato", OPERATOR,
     ),
     # -- the action behind the type ---------------------------------------------
     "no_adapter_configured": (

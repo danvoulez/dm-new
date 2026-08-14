@@ -1,9 +1,19 @@
 process_id: inference.v1
 status: active
 organ: law
-activation:
-  required_slots: [who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status]
-  must_include: []
+activation_ritual:
+  slots:
+    who: {meaning: "autoridade que solicita inferência", source: session, predicate: who.authorized}
+    did: {meaning: "pedido de inferência admitido", source: llm, predicate: did.allowed, values: [requested_inference]}
+    this: {meaning: "tarefa canônica de inferência", source: llm, predicate: this.canonical}
+    when: {meaning: "instante de registro do pedido", source: clock, predicate: when.registered_at}
+    confirmed_by: {meaning: "autoridade que confirma o pedido", source: session, predicate: confirmed_by.authority}
+    if_ok: {meaning: "continuidade após inferência", source: contract, predicate: if_ok.compatible, values: [inference.v1]}
+    if_doubt: {meaning: "continuidade se a inferência não for confiável", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
+    if_not: {meaning: "continuidade quando não há modelo", source: contract, predicate: if_not.compatible, values: [no_model]}
+    status: {meaning: "estado inicial do pedido", source: contract, predicate: status.initial, values: [candidate]}
+  required_aux: []
+  optional_aux: []
 authority_scope: []
 adapters: [inference]
 danger_tier: L3

@@ -27,9 +27,24 @@ DOUBT_DID = "doubt"
 # LLM recognizes states without parsing free text. test_receipt_molds.py pins completeness.
 DOUBT_REASONS = frozenset({
     # contract / activation
-    "no_matching_process_contract",  # spec: unknown_process
+    "unknown_process",
+    "process_route_mismatch",
     "process_not_active",            # spec: process_not_runnable
     "incomplete",                    # spec: missing_required_fields
+    "activation_rules_not_explicit",
+    "did_not_admitted",
+    "who_not_authorized",
+    "confirmed_by_not_authorized",
+    "this_not_canonical",
+    "this_not_content_hash",
+    "when_invalid",
+    "when_not_future",
+    "confirmation_evidence_invalid",
+    "if_ok_incompatible",
+    "if_doubt_incompatible",
+    "if_not_incompatible",
+    "status_initial_invalid",
+    "unknown_predicate",
     # adapter
     "no_adapter_configured",         # contract names no adapter at all
     "adapter_not_registered",        # contract names an adapter with no implementation
@@ -41,7 +56,6 @@ DOUBT_REASONS = frozenset({
     "grant_subject_mismatch",
     "grant_process_mismatch",
     "grant_adapter_mismatch",
-    "who_not_authorized",
     "grant_not_active",
     "grant_revoked",
     "grant_expired",
@@ -204,7 +218,7 @@ def clock_select_due(
             continue
         if start is not None and scheduled_at < start:
             continue
-        process_id = receipt.get("process_id") or receipt.get("if_ok")
+        process_id = receipt.get("process_id")
         decision = evaluate(receipt, process_id)
         queued = None
         doubt = None
@@ -392,7 +406,7 @@ def receiver_select(db: sqlite3.Connection, frequency: str, limit: int = 20) -> 
     """Selector-only receiver: evaluate addressed rows and queue activatable work."""
     ensure_runtime(db)
     rows = db.execute(
-        "SELECT content_hash, act FROM logline_acts WHERE if_ok = ? ORDER BY inserted_at, content_hash LIMIT ?",
+        "SELECT content_hash, act FROM logline_acts WHERE json_extract(act, '$.process_id') = ? ORDER BY inserted_at, content_hash LIMIT ?",
         (frequency, limit),
     ).fetchall()
     selected: list[dict[str, Any]] = []
