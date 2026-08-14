@@ -58,9 +58,7 @@ export function Sidebar({ className, onNavigate, onOpenSettings, pendingCount }:
 
 function SettingsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [identity, setIdentity] = useState(() => localStorage.getItem("dream.identity") ?? "");
-  const [model, setModel] = useState(() => localStorage.getItem("dream.defaultModel") ?? "");
   const [message, setMessage] = useState<string>();
-  const models = useQuery({ queryKey: ["models"], queryFn: dmApi.models, enabled: open });
 
   const enroll = useMutation({
     mutationFn: async () => {
@@ -79,12 +77,6 @@ function SettingsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o
     setMessage("Identidade salva neste navegador.");
   };
 
-  const saveModel = (value: string) => {
-    setModel(value);
-    if (value) localStorage.setItem("dream.defaultModel", value);
-    else localStorage.removeItem("dream.defaultModel");
-  };
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[92vw] max-w-[440px] overflow-y-auto">
@@ -93,15 +85,6 @@ function SettingsSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o
           <section>
             <h3 className="text-[13px] font-semibold">Tema</h3>
             <p className="mt-1 text-[12px] text-muted-foreground">Segue o tema do sistema. Um modo visual novo fica fora desta fase.</p>
-          </section>
-
-          <section>
-            <h3 className="text-[13px] font-semibold">Modelo padrão</h3>
-            <select value={model} onChange={(event) => saveModel(event.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 text-[13px]">
-              <option value="">Automático</option>
-              {models.data?.data.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}
-            </select>
-            {models.error ? <p className="mt-2 text-[11px] text-muted-foreground">O catálogo de modelos está indisponível agora.</p> : null}
           </section>
 
           <section>

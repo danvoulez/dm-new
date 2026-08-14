@@ -18,6 +18,7 @@ import {
   type FormalizedActProposal,
 } from "./process-tools";
 import type { WebAuthnEnv } from "./webauthn";
+import { fetchModelCatalog, goldenBridgeFetch, requireExplicitCatalogModel } from "./model-catalog";
 
 export type ChatEnv = WebAuthnEnv & {
   GOLDEN_BRIDGE_URL?: string;
@@ -27,8 +28,6 @@ export type ChatEnv = WebAuthnEnv & {
 };
 
 type ConversationRow = { role: "user" | "assistant"; message: string; created_at: string };
-
-const BRIDGE_DEFAULT = "https://inference.minilab.work";
 
 class BridgeCompletionError extends Error {
   readonly status: number;
@@ -40,27 +39,6 @@ class BridgeCompletionError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-async function bridgeFetch(env: ChatEnv, path: string, init: RequestInit = {}): Promise<Response> {
-  const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
-  const host = new URL(publicBase).host;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(init.headers as Record<string, string> | undefined),
-  };
-  if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
-    const response = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
-      ...init,
-      headers: { ...headers, Host: host },
-    });
-    if (response.ok) return response;
-  }
-  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
-    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
-    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
-  }
-  return fetch(`${publicBase}${path}`, { ...init, headers });
 }
 
 function upstreamMessages(messages: DreamMessage[]): Array<Record<string, unknown>> {
@@ -102,7 +80,7 @@ function parseToolArguments(value: unknown): Record<string, unknown> {
 function bridgeModel(env: ChatEnv, model: string) {
   return {
     async complete(request: DreamModelRequest): Promise<DreamModelResponse> {
-      const response = await bridgeFetch(env, "/v1/chat/completions", {
+      const response = await goldenBridgeFetch(env, "/v1/chat/completions", {
         method: "POST",
         body: JSON.stringify({
           model,
@@ -172,12 +150,14 @@ export async function runChatTurn(
 ) {
   const model = String(input.model ?? "").trim();
   if (!model) throw Object.assign(new Error("Escolha um modelo da Golden Bridge antes de enviar."), { code: "model_required", status: 400 });
+  const catalog = await fetchModelCatalog(env);
+  const selectedModel = requireExplicitCatalogModel(catalog, model);
   const conversationId = input.conversation_id || crypto.randomUUID();
   const history = await loadHistory(env.PROJECTIONS, conversationId);
   const identity = String(input.identity ?? "").trim();
 
   const result = await runDreamTurn({ message: input.message, conversation_id: conversationId, history }, {
-    model: bridgeModel(env, model),
+    model: bridgeModel(env, selectedModel.id),
     searchProcesses: (query) => searchProcesses(client, query),
     readProcessContract: (processId) => readProcessContract(client, processId),
     formalizeActs: async (proposals: FormalizedActProposal[]) => {

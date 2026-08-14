@@ -14,6 +14,7 @@ import { authorityRecognized, getGrantStanding, listGrants, registerGrant, revok
 import { SEED_CONTRACTS } from "./seed-contracts";
 import { createEnrollmentOptions, createSignOptions, verifyEnrollment, verifyGrantSignoff } from "./webauthn";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
+import { fetchModelCatalog } from "./model-catalog";
 
 export type Env = {
   HYPERDRIVE: Hyperdrive;
@@ -31,26 +32,6 @@ export type Env = {
   GOLDEN_BRIDGE_ACCESS_SECRET?: string;
   GOLDEN_BRIDGE_TUNNEL_ID?: string;
 };
-
-const BRIDGE_DEFAULT = "https://inference.minilab.work";
-
-async function bridgeFetch(env: Env, path: string, init: RequestInit = {}): Promise<Response> {
-  const publicBase = (env.GOLDEN_BRIDGE_URL ?? BRIDGE_DEFAULT).replace(/\/+$/, "");
-  const host = new URL(publicBase).host;
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...(init.headers as Record<string, string> | undefined) };
-  if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
-    const response = await fetch(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
-      ...init,
-      headers: { ...headers, Host: host },
-    });
-    if (response.ok) return response;
-  }
-  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
-    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
-    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
-  }
-  return fetch(`${publicBase}${path}`, { ...init, headers });
-}
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -124,22 +105,19 @@ app.get("/api/vocabulary", (c) => {
 
 app.get("/api/models", async (c) => {
   try {
-    const response = await bridgeFetch(c.env, "/v1/models");
-    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-    return c.json(await response.json());
+    return c.json(await fetchModelCatalog(c.env));
   } catch (error) {
-    return c.json({ object: "list", data: [], error: `golden-bridge unavailable: ${errorText(error).slice(0, 200)}` }, 502);
+    const typed = error as { code?: string; action?: string };
+    return c.json({ object: "list", provider: "golden-bridge", sources: [], data: [], error: errorText(error), code: typed.code ?? "model_catalog_unavailable", action: typed.action }, 502);
   }
 });
 
 app.get("/v1/models", async (c) => {
   try {
-    const response = await bridgeFetch(c.env, "/v1/models");
-    if (!response.ok) throw new Error(`${response.status} ${await response.text()}`);
-    const body = await response.json() as { data?: unknown[] };
-    return c.json({ object: "list", data: body.data ?? [] });
+    return c.json(await fetchModelCatalog(c.env));
   } catch (error) {
-    return c.json({ object: "list", data: [], error: errorText(error).slice(0, 200) }, 502);
+    const typed = error as { code?: string; action?: string };
+    return c.json({ object: "list", provider: "golden-bridge", sources: [], data: [], error: errorText(error), code: typed.code ?? "model_catalog_unavailable", action: typed.action }, 502);
   }
 });
 
@@ -349,15 +327,19 @@ app.post("/api/chat/turn", async (c) => {
     return c.json(result);
   } catch (error) {
     const detail = errorText(error);
-    const typed = error as { code?: unknown; status?: unknown };
-    if (typed?.code === "model_required") {
-      return c.json({ error: detail, code: "model_required", action: "Escolha um modelo da Golden Bridge." }, 400);
+    const typed = error as { code?: unknown; status?: unknown; action?: unknown };
+    if (typeof typed?.code === "string" && typeof typed?.status === "number" && typed.status >= 400 && typed.status <= 599) {
+      return c.json({
+        error: detail,
+        code: typed.code,
+        action: typeof typed.action === "string" ? typed.action : "Escolha outro modelo disponível na Golden Bridge.",
+      }, typed.status as 400);
     }
     if (/chat_turns|projection_docs|no such table/i.test(detail)) {
       return c.json({ error: "chat projection store is not migrated", code: "not_migrated", detail: detail.slice(0, 300) }, 503);
     }
     if (/golden_bridge|model_catalog|llm_|fetch failed|network/i.test(detail)) {
-      return c.json({ error: "modelo indisponível, tente depois", code: "model_unavailable", detail: detail.slice(0, 300) }, 502);
+      return c.json({ error: detail.slice(0, 300), code: "model_unavailable", action: "Escolha outro modelo disponível na Golden Bridge." }, 502);
     }
     if (/process_contracts|runtime_queue|logline_acts|connect/i.test(detail)) return c.json(dbFailure(error), 503);
     return c.json({ error: "chat turn failed safely", code: "chat_turn_failed", detail: detail.slice(0, 300) }, 500);

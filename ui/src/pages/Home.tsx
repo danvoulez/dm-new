@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { PiArrowUpBold, PiWaveform } from "react-icons/pi";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { dmApi, type ChatAction } from "@/lib/dm-api";
+import { dmApi, type ChatAction, type RegistrationResult } from "@/lib/dm-api";
 import { getPasskeyAssertion } from "@/lib/webauthn";
 import { cn } from "@/lib/utils";
 import { MarkdownText } from "@/components/chat/MarkdownText";
 import { ActionCard } from "@/components/chat/ActionCard";
+import { ModelPicker } from "@/components/chat/ModelPicker";
 
 type ChatMsg =
   | { id: string; role: "user"; text: string }
@@ -15,22 +16,32 @@ type ChatMsg =
 
 function uid() { return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2); }
 
+function registrationMessage(result: RegistrationResult) {
+  const receipt = result.fingerprint ?? result.id.slice(0, 8);
+  const movement = result.queued ? "Andando" : result.process_id ? "Esperando" : "Apenas registrado";
+  const detail = result.waiting?.message ? ` · ${result.waiting.message}` : "";
+  return `Registrado · ${receipt}\n${movement}${detail}`;
+}
+
 export default function Home() {
   const [content, setContent] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [conversationId, setConversationId] = useState<string>();
   const [action, setAction] = useState<ChatAction>();
+  const [model, setModel] = useState("");
   const [, navigate] = useLocation();
   const landing = useQuery({ queryKey: ["now"], queryFn: dmApi.now });
+  const models = useQuery({ queryKey: ["models"], queryFn: dmApi.models, retry: false, staleTime: 4 * 60 * 1000 });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const chat = useMutation({
-    mutationFn: (message: string) => dmApi.chatTurn(message, conversationId, localStorage.getItem("dream.defaultModel") || undefined),
+    mutationFn: (message: string) => dmApi.chatTurn(message, conversationId, model),
     onSuccess: (result) => {
       setConversationId(result.conversation_id);
-      setMessages((items) => [...items, { id: uid(), role: "assistant", text: result.reply }]);
+      const receipts: ChatMsg[] = (result.registrations ?? []).map((registration) => ({ id: uid(), role: "system", text: registrationMessage(registration), caseHash: registration.id }));
+      setMessages((items) => [...items, { id: uid(), role: "assistant", text: result.reply }, ...receipts]);
       setAction(result.action);
     },
     onError: (error) => {
@@ -43,10 +54,7 @@ export default function Home() {
     mutationFn: (body: Record<string, unknown>) => dmApi.register(body),
     onSuccess: (result) => {
       setAction(undefined);
-      const message = result.activated
-        ? "Registrado e já está avançando."
-        : `Registrado. ${result.waiting?.message ?? "Está aguardando a próxima condição."}`;
-      setMessages((items) => [...items, { id: uid(), role: "system", text: message, caseHash: result.id }]);
+      setMessages((items) => [...items, { id: uid(), role: "system", text: registrationMessage(result), caseHash: result.id }]);
     },
     onError: (error) => setMessages((items) => [...items, { id: uid(), role: "system", text: `O registro não foi concluído: ${(error as Error).message}` }]),
   });
@@ -97,9 +105,13 @@ export default function Home() {
     if (landing.data.needs_you.length > 0) navigate("/pendencias", { replace: true });
   }, [landing.data, messages.length, navigate]);
 
+  useEffect(() => {
+    if (model && models.data && !models.data.data.some((candidate) => candidate.id === model && candidate.selectable)) setModel("");
+  }, [model, models.data]);
+
   const submit = () => {
     const message = content.trim();
-    if (!message || busy) return;
+    if (!message || !model || busy) return;
     setMessages((items) => [...items, { id: uid(), role: "user", text: message }]);
     setContent("");
     setAction(undefined);
@@ -179,11 +191,21 @@ export default function Home() {
               onBlur={() => setIsFocused(false)}
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); submit(); } }}
             />
-            <div className="flex items-center justify-end gap-2 px-1 pb-1 pt-1">
-              <span className="mr-1 hidden text-[11px] text-muted-foreground md:inline">Shift+Enter quebra linha</span>
-              <button type="button" aria-label="Enviar" disabled={busy || !content.trim()} onClick={submit} className="grid h-11 w-11 place-items-center rounded-full bg-[#0a8cff] text-white active:scale-95 disabled:opacity-40">
+            <div className="flex items-center justify-between gap-2 px-1 pb-1 pt-1">
+              <ModelPicker
+                catalog={models.data}
+                value={model}
+                onChange={setModel}
+                onRefresh={() => { void models.refetch(); }}
+                loading={models.isLoading || models.isFetching}
+                error={models.error ? (models.error as Error).message : undefined}
+              />
+              <div className="flex items-center gap-2">
+                <span className="mr-1 hidden text-[11px] text-muted-foreground md:inline">Shift+Enter quebra linha</span>
+                <button type="button" aria-label="Enviar" disabled={busy || !content.trim() || !model} onClick={submit} className="grid h-11 w-11 place-items-center rounded-full bg-[#0a8cff] text-white active:scale-95 disabled:opacity-40">
                 {busy ? <PiWaveform className="h-5 w-5 animate-pulse" /> : <PiArrowUpBold className="h-5 w-5" />}
-              </button>
+                </button>
+              </div>
             </div>
           </div>
           {hasMessages ? (
