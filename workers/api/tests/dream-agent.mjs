@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
-import { runDreamTurn } from "../src/dream-agent.ts";
+import { DREAM_TOOL_DEFINITIONS, runDreamTurn } from "../src/dream-agent.ts";
 
 const HASH = "a".repeat(64);
+
+const formalizeDefinition = DREAM_TOOL_DEFINITIONS.find((tool) => tool.name === "formalize_acts");
+assert.ok(formalizeDefinition);
+const actSchema = formalizeDefinition.parameters.properties.acts.items;
+assert.deepEqual(actSchema.required, ["slots", "fields", "missing", "citations"]);
+assert.ok(actSchema.properties.process_id);
+assert.ok(actSchema.properties.contract_hash);
+assert.ok(actSchema.properties.slots.properties.did);
+assert.ok(actSchema.properties.fields);
+assert.ok(actSchema.properties.citations);
 
 function scripted(responses) {
   const requests = [];
@@ -86,6 +96,33 @@ function harness(model) {
   await runDreamTurn({ message: "crie o resumo do Q3", conversation_id: "conv_0004" }, h.deps);
   assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
   assert.equal(h.registered.length, 1);
+}
+
+{
+  const processAct = {
+    process_id: "projection-build.v1",
+    contract_hash: HASH,
+    slots: { did: "request_projection", this: "Q3" },
+    fields: { projection_spec: "resumo do Q3" },
+    missing: [],
+    citations: [HASH],
+  };
+  const model = scripted([
+    { tool_calls: [{ id: "s1", name: "search_processes", arguments: { query: "projeção" } }] },
+    { tool_calls: [{ id: "bad", name: "formalize_acts", arguments: { acts: [{ slots: { did: "registered", this: "Q3" }, fields: {}, missing: [], citations: [] }] } }] },
+    { tool_calls: [{ id: "r1", name: "read_process_contract", arguments: { process_id: "projection-build.v1" } }] },
+    { tool_calls: [{ id: "good", name: "formalize_acts", arguments: { acts: [processAct] } }] },
+  ]);
+  const h = harness(model);
+  const turn = await runDreamTurn({ message: "crie uma projeção do Q3", conversation_id: "conv_0004_retry" }, h.deps);
+  assert.deepEqual(turn.tool_trace, [
+    { name: "search_processes", ok: true },
+    { name: "formalize_acts", ok: false },
+    { name: "read_process_contract", ok: true },
+    { name: "formalize_acts", ok: true },
+  ]);
+  assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
+  assert.equal(turn.registrations[0].activated, true);
 }
 
 {

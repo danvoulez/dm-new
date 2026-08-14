@@ -2,10 +2,36 @@ import type { FormalizedActProposal, ProcessContractForLLM, ProcessSearchResult 
 
 export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado e nunca faça registro puro: busque o tipo de processo com poucas palavras, leia o contrato ativo e só então formalize conforme ele, citando seu hash. Se não encontrar processo, diga isso sem simular a consequência. Não invente identidade, autoridade, confirmação ou evidência. Registrar não significa ativar; somente o evaluator determina se a forma satisfez o processo.`;
 
+const LOG_LINE_SLOT_PROPERTIES = {
+  who: { type: "string" },
+  did: { type: "string" },
+  this: { type: "string" },
+  when: { type: "string" },
+  confirmed_by: { type: "string" },
+  if_ok: { type: "string" },
+  if_doubt: { type: "string" },
+  if_not: { type: "string" },
+  status: { type: "string" },
+} as const;
+
+const FORMALIZED_ACT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["slots", "fields", "missing", "citations"],
+  properties: {
+    process_id: { type: "string", description: "Processo explicitamente escolhido após search_processes e read_process_contract. Omitir somente em registro puro." },
+    contract_hash: { type: "string", description: "Hash de 64 caracteres devolvido por read_process_contract. Obrigatório com process_id." },
+    slots: { type: "object", additionalProperties: false, properties: LOG_LINE_SLOT_PROPERTIES, description: "Somente slots cuja source no contrato seja llm." },
+    fields: { type: "object", additionalProperties: true, description: "Campos AUX declarados pelo contrato." },
+    missing: { type: "array", items: { type: "string" } },
+    citations: { type: "array", items: { type: "string" }, description: "Inclui contract_hash quando houver processo." },
+  },
+} as const;
+
 export const DREAM_TOOL_DEFINITIONS = [
   { name: "search_processes", description: "Primeiro passo obrigatório quando a pessoa pede uma consequência. Busque com poucas palavras que nomeiem o tipo de processo, não com a frase inteira.", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
   { name: "read_process_contract", description: "Lê as regras e o hash registrado de um processo antes da formalização.", parameters: { type: "object", required: ["process_id"], properties: { process_id: { type: "string" } } } },
-  { name: "formalize_acts", description: "Registra uma ou mais intenções. Registro puro, sem process_id, só vale para pedido explícito de guardar um fato sem consequência. Consequência exige o contrato lido e citado.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: { type: "object" } } } } },
+  { name: "formalize_acts", description: "Registra uma ou mais intenções. Registro puro, sem process_id, só vale para pedido explícito de guardar um fato sem consequência. Consequência exige o contrato lido e citado.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
   { name: "get_case", description: "Consulta um caso existente sem criar LogLine.", parameters: { type: "object", required: ["hash"], properties: { hash: { type: "string" } } } },
   { name: "get_pendencies", description: "Consulta pendências sem criar LogLine.", parameters: { type: "object", properties: {} } },
 ] as const;
@@ -87,6 +113,7 @@ export async function runDreamTurn(
   const registrations: Array<Record<string, unknown>> = [];
   const toolTrace: Array<{ name: string; ok: boolean }> = [];
   const readContracts = new Map<string, string>();
+  let processIntentObserved = false;
 
   for (let turn = 0; turn < 10; turn += 1) {
     const response = await deps.model.complete({ messages, tools: DREAM_TOOL_DEFINITIONS, tool_choice: "auto" });
@@ -104,8 +131,10 @@ export async function runDreamTurn(
       try {
         const args = object(call.arguments);
         if (call.name === "search_processes") {
+          processIntentObserved = true;
           result = await deps.searchProcesses(String(args.query ?? ""));
         } else if (call.name === "read_process_contract") {
+          processIntentObserved = true;
           const processId = String(args.process_id ?? "");
           result = await deps.readProcessContract(processId);
           const detail = object(result);
@@ -114,6 +143,9 @@ export async function runDreamTurn(
         } else if (call.name === "formalize_acts") {
           const acts = Array.isArray(args.acts) ? args.acts.map((item) => object(item) as FormalizedActProposal) : [];
           if (!acts.length) throw Object.assign(new Error("formalize_acts requires at least one act"), { code: "acts_required" });
+          if (processIntentObserved && acts.every((act) => !String(act.process_id ?? "").trim())) {
+            throw Object.assign(new Error("a recognized process intent cannot be downgraded to pure registration"), { code: "process_required_after_consultation" });
+          }
           for (const act of acts) {
             const processId = String(act.process_id ?? "");
             if (!processId) continue;
