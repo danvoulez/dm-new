@@ -76,15 +76,15 @@ export async function goldenBridgeFetch(
     "Content-Type": "application/json",
     ...(init.headers as Record<string, string> | undefined),
   };
+  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
+    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
+    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
+  }
   if (env.GOLDEN_BRIDGE_TUNNEL_ID) {
     return fetchImpl(`https://${env.GOLDEN_BRIDGE_TUNNEL_ID}.cfargotunnel.com${path}`, {
       ...init,
       headers: { ...headers, Host: host },
     });
-  }
-  if (env.GOLDEN_BRIDGE_ACCESS_ID && env.GOLDEN_BRIDGE_ACCESS_SECRET) {
-    headers["CF-Access-Client-Id"] = env.GOLDEN_BRIDGE_ACCESS_ID;
-    headers["CF-Access-Client-Secret"] = env.GOLDEN_BRIDGE_ACCESS_SECRET;
   }
   return fetchImpl(`${publicBase}${path}`, { ...init, headers });
 }

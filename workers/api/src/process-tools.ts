@@ -1,4 +1,4 @@
-import { humanProcessTitle, loadContracts, toProcessTypeView, type ProcessContract, type Slot } from "./contracts";
+import { humanProcessTitle, loadContracts, toProcessTypeView, type ProcessContract, type Slot } from "./contracts.ts";
 import type { PgClient } from "./db";
 import type { ActFields } from "./receipt";
 
