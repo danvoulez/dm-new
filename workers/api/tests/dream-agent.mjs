@@ -10,6 +10,9 @@ assert.deepEqual(actSchema.required, ["slots", "fields", "missing", "citations"]
 assert.ok(actSchema.properties.process_id);
 assert.ok(actSchema.properties.contract_hash);
 assert.ok(actSchema.properties.slots.properties.did);
+assert.ok(actSchema.properties.slots.properties.this);
+assert.deepEqual(Object.keys(actSchema.properties.slots.properties), ["did", "this"]);
+assert.deepEqual(actSchema.properties.slots.required, ["did", "this"]);
 assert.ok(actSchema.properties.fields);
 assert.ok(actSchema.properties.citations);
 
@@ -117,7 +120,7 @@ function harness(model) {
   const turn = await runDreamTurn({ message: "crie uma projeção do Q3", conversation_id: "conv_0004_retry" }, h.deps);
   assert.deepEqual(turn.tool_trace, [
     { name: "search_processes", ok: true },
-    { name: "formalize_acts", ok: false },
+    { name: "formalize_acts", ok: false, code: "process_required_after_consultation" },
     { name: "read_process_contract", ok: true },
     { name: "formalize_acts", ok: true },
   ]);

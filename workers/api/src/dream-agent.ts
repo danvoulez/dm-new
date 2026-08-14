@@ -3,15 +3,8 @@ import type { FormalizedActProposal, ProcessContractForLLM, ProcessSearchResult 
 export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado e nunca faça registro puro: busque o tipo de processo com poucas palavras, leia o contrato ativo e só então formalize conforme ele, citando seu hash. Se não encontrar processo, diga isso sem simular a consequência. Não invente identidade, autoridade, confirmação ou evidência. Registrar não significa ativar; somente o evaluator determina se a forma satisfez o processo.`;
 
 const LOG_LINE_SLOT_PROPERTIES = {
-  who: { type: "string" },
   did: { type: "string" },
   this: { type: "string" },
-  when: { type: "string" },
-  confirmed_by: { type: "string" },
-  if_ok: { type: "string" },
-  if_doubt: { type: "string" },
-  if_not: { type: "string" },
-  status: { type: "string" },
 } as const;
 
 const FORMALIZED_ACT_SCHEMA = {
@@ -21,7 +14,7 @@ const FORMALIZED_ACT_SCHEMA = {
   properties: {
     process_id: { type: "string", description: "Processo explicitamente escolhido após search_processes e read_process_contract. Omitir somente em registro puro." },
     contract_hash: { type: "string", description: "Hash de 64 caracteres devolvido por read_process_contract. Obrigatório com process_id." },
-    slots: { type: "object", additionalProperties: false, properties: LOG_LINE_SLOT_PROPERTIES, description: "Somente slots cuja source no contrato seja llm." },
+    slots: { type: "object", additionalProperties: false, required: ["did", "this"], properties: LOG_LINE_SLOT_PROPERTIES, description: "Apenas did e this vêm do LLM. Os outros sete slots vêm da sessão, relógio ou contrato." },
     fields: { type: "object", additionalProperties: true, description: "Campos AUX declarados pelo contrato." },
     missing: { type: "array", items: { type: "string" } },
     citations: { type: "array", items: { type: "string" }, description: "Inclui contract_hash quando houver processo." },
@@ -67,7 +60,7 @@ export type DreamTurn = {
   reply: string;
   conversation_id: string;
   registrations: Array<Record<string, unknown>>;
-  tool_trace: Array<{ name: string; ok: boolean }>;
+  tool_trace: Array<{ name: string; ok: boolean; code?: string }>;
 };
 
 function registrationReply(registrations: Array<Record<string, unknown>>): string {
@@ -111,7 +104,7 @@ export async function runDreamTurn(
     { role: "user", content: input.message },
   ];
   const registrations: Array<Record<string, unknown>> = [];
-  const toolTrace: Array<{ name: string; ok: boolean }> = [];
+  const toolTrace: Array<{ name: string; ok: boolean; code?: string }> = [];
   const readContracts = new Map<string, string>();
   let processIntentObserved = false;
 
@@ -128,6 +121,7 @@ export async function runDreamTurn(
     for (const call of calls) {
       let result: unknown;
       let ok = true;
+      let failureCode: string | undefined;
       try {
         const args = object(call.arguments);
         if (call.name === "search_processes") {
@@ -166,9 +160,11 @@ export async function runDreamTurn(
         }
       } catch (error) {
         ok = false;
-        result = { error: processError(error) };
+        const failure = processError(error);
+        failureCode = String(failure.code);
+        result = { error: failure };
       }
-      toolTrace.push({ name: call.name, ok });
+      toolTrace.push({ name: call.name, ok, ...(failureCode ? { code: failureCode } : {}) });
       messages.push({
         role: "tool",
         name: call.name,
