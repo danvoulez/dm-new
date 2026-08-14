@@ -134,6 +134,19 @@ function harness(model) {
 }
 
 {
+  const model = scripted([
+    { tool_calls: [{ id: "s1", name: "search_processes", arguments: { query: "projeção" } }] },
+    { content: "Vou assumir os dados e criar uma projeção imaginária." },
+  ]);
+  const h = harness(model);
+  await assert.rejects(
+    () => runDreamTurn({ message: "crie uma projeção", conversation_id: "conv_required_tool" }, h.deps),
+    (error) => error.code === "required_tool_not_called" && error.status === 502 && error.required_tool === "read_process_contract",
+  );
+  assert.equal(h.registered.length, 0);
+}
+
+{
   const acts = [
     { slots: { did: "registered", this: "Q3 fechou" }, fields: {}, citations: [] },
     { slots: { did: "registered", this: "Q4 abriu" }, fields: {}, citations: [] },
