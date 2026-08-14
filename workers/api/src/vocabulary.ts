@@ -1,6 +1,7 @@
 // Closed failure vocabulary from lab/messages.py — no hardcode in UI.
 // Served by GET /api/vocabulary so UI renders without release when a reason is added.
 export const CATALOG: Record<string, [string, string, string]> = {
+  "no_process_requested": ["Ficou registrado sem ativar nenhum processo.", "Ver registro", "user"],
   "unknown_process": ["Ficou registrado, mas o tipo de processo solicitado não existe no catálogo atual.", "Escolher tipo", "user"],
   "process_route_mismatch": ["O processo endereçado pela rota não é o mesmo declarado no registro. Nada foi executado.", "Ver integração", "operator"],
   "process_not_active": ["Este tipo de solicitação está desativado no momento.", "Avisar responsável", "operator"],
