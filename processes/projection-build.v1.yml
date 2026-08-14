@@ -12,7 +12,7 @@ activation_ritual:
     if_doubt: {meaning: "continuidade se a projeção não puder ser provada", source: contract, predicate: if_doubt.compatible, values: [attention-raise.v1]}
     if_not: {meaning: "continuidade negativa", source: contract, predicate: if_not.compatible, values: [stop]}
     status: {meaning: "estado inicial do pedido", source: contract, predicate: status.initial, values: [registered]}
-  required_aux: []
+  required_aux: [projection_spec]
   optional_aux: []
 authority_scope: []
 adapters: [projection]

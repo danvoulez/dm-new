@@ -231,3 +231,5 @@ def test_shipped_processes_publish_explicit_admitted_acts():
         assert contract.slot_rules["who"].source == "session"
         assert contract.slot_rules["when"].source == "clock"
         assert contract.slot_rules["if_ok"].source == "contract"
+
+    assert catalog["projection-build.v1"].must_include == ("projection_spec",)

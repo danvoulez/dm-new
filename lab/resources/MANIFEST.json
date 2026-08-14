@@ -51,8 +51,8 @@
       "source": "processes/oauth-client.v1.yml"
     },
     {
-      "sha256": "c0ee404d3af982d1edc9f0d507bc620feeed878390f7e94970d67001db2c2a4d",
-      "size": 1371,
+      "sha256": "49b103c91ab42aaa92e9cad17aa48a3f750fcd6e9ddca918bf2c8d02721aac5c",
+      "size": 1386,
       "source": "processes/projection-build.v1.yml"
     },
     {
@@ -116,8 +116,8 @@
       "source": "schemas/llm/chat_turn.v1.json"
     },
     {
-      "sha256": "ec5f226f0ffc32c491b9b22b00f286ee2a4337d531dd50e1431632063893f999",
-      "size": 1492,
+      "sha256": "17f8e8d3b4980f6d5cf0214b3ff2d61168200b151b310d8f77d9a030278b355e",
+      "size": 1694,
       "source": "schemas/llm/process_ingress.v1.json"
     },
     {
@@ -151,8 +151,8 @@
       "source": "migrations/0003_rls_and_search_path.sql"
     },
     {
-      "sha256": "885c8c1dcd3d0eff4923e177a10f85313c81805b72327c1ffd9d12466826f332",
-      "size": 24484,
+      "sha256": "087a48747e87d6f36494aad2a9229a3c6160200b55db4a9e389857afbdefcc3d",
+      "size": 26030,
       "source": "migrations/0004_process_contracts.sql"
     },
     {
@@ -636,8 +636,8 @@
       "source": "tests/fixtures/santo-andre-vectors/valid/workflow-next-sent_to-is-deterministic.json"
     },
     {
-      "sha256": "020847bb668299d115d081a66747f0d20a28c874df468f46ed7ed13ecfef1bd4",
-      "size": 1470,
+      "sha256": "82bc29e26867c6b4f6a36103c4e59ce7c6dc47dc64a71a0213b80749554d815f",
+      "size": 1107,
       "source": "prompts/process_ingress.v1.txt"
     },
     {

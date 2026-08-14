@@ -904,7 +904,9 @@ export const SEED_CONTRACTS = [
         }
       },
       "activation_rules_explicit": true,
-      "must_include": [],
+      "must_include": [
+        "projection_spec"
+      ],
       "optional_aux": [],
       "allowed_who": [],
       "required_grants": [],

@@ -1,35 +1,57 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "process_ingress.v1",
-  "description": "Shape of a compiled ingress: an intent expressed in prose, resolved to one registered process type plus the domain fields that type declares. Contingency slots are absent on purpose - they belong to the contract, not to the compilation.",
+  "description": "Uma ou mais intenções formalizadas. Registro puro omite processo; consequência cita o contrato consultado.",
   "type": "object",
-  "required": ["process_id", "fields", "citations"],
+  "required": ["acts"],
   "additionalProperties": false,
   "properties": {
-    "process_id": {
-      "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*\\.v[0-9]+$",
-      "description": "The process type this intent resolves to."
-    },
-    "fields": {
-      "type": "object",
-      "description": "Domain aux fields for the act, keyed as the contract declares them."
-    },
-    "missing": {
-      "type": "array",
-      "items": {"type": "string"},
-      "description": "Fields the contract requires that the prose did not supply. Informational: the act registers either way, and the evaluator decides activation."
-    },
-    "citations": {
+    "acts": {
       "type": "array",
       "minItems": 1,
-      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-      "description": "Content hashes of the contract records this was compiled against - provenance for which version of the law was in force."
+      "items": {
+        "type": "object",
+        "required": ["slots", "fields", "missing", "citations"],
+        "additionalProperties": false,
+        "properties": {
+          "process_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*\\.v[0-9]+$"
+          },
+          "contract_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "slots": {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "Somente slots cuja fonte declarada é llm."
+          },
+          "fields": {
+            "type": "object",
+            "description": "AUX declarados pelo contrato; em registro puro, metadados do fato."
+          },
+          "missing": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "citations": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        "allOf": [
+          {
+            "if": {"required": ["process_id"]},
+            "then": {"required": ["contract_hash"]},
+            "else": {"not": {"required": ["contract_hash"]}}
+          }
+        ]
+      }
     },
     "note": {
       "type": "string",
-      "maxLength": 280,
-      "description": "Optional short remark for the person, never a substitute for the rendered restatement."
+      "maxLength": 280
     }
   }
 }

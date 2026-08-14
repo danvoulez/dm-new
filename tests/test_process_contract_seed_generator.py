@@ -28,6 +28,9 @@ def test_generated_artifacts_are_in_sync():
     assert artifacts[Path("migrations/0004_process_contracts.sql")] == Path(
         "migrations/0004_process_contracts.sql"
     ).read_text(encoding="utf-8")
+    assert "then public.process_contracts.registered_hash else null end" in artifacts[
+        Path("migrations/0004_process_contracts.sql")
+    ].lower()
 
 
 def test_generator_check_uses_the_current_checkout():

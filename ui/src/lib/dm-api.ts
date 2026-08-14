@@ -111,26 +111,6 @@ export type GrantStanding = {
 export type CandidatesView = { count: number; candidates: Array<{ id: string; fingerprint: string | null; did: string; when: string; payload: unknown; citations: unknown[] }> };
 export type ProjectionsView = { count: number; note: string; projections: Array<{ projection_hash: string; fingerprint: string | null; spec: string; class: string; computed_at: string }> };
 
-export type ChatSuggestion = {
-  process_id: string;
-  title: string;
-  fields: Record<string, string>;
-  missing: string[];
-  citations: string[];
-  note?: string;
-  confidence: "high" | "medium" | "low";
-  runnable: boolean;
-  needs_approval: boolean;
-  irreversible: boolean;
-};
-
-export type ChatCompileResult = {
-  suggestion: ChatSuggestion | null;
-  candidates: ChatSuggestion[];
-  intent: string;
-  note?: string;
-};
-
 export type ProcessTypeCreate = {
   process_id: string;
   title: string;
@@ -155,6 +135,7 @@ export type ChatTurnResult = {
   reply: string;
   conversation_id: string;
   action?: ChatAction;
+  registrations?: Array<Record<string, unknown>>;
 };
 
 export const dmApi = {
@@ -178,7 +159,6 @@ export const dmApi = {
   createGrant: (body: Record<string, unknown>) => req<{ registered: boolean; grant_id: string; fingerprint: string | null }>(`/api/grants`, { method: "POST", body: JSON.stringify(body) }),
   advance: (body: Record<string, unknown>) => req<{ ran?: boolean; note?: string }>(`/api/advance`, { method: "POST", body: JSON.stringify(body) }),
   register: (body: Record<string, unknown>) => req<{ registered: boolean; id: string; fingerprint: string | null; activated: boolean; process_id?: string | null; queued?: boolean; waiting?: { code?: string; message?: string; action?: string; resolved_by?: string }; missing?: string[] }>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
-  chatCompile: (intent: string, model?: string) => req<ChatCompileResult>(`/api/chat/compile`, { method: "POST", body: JSON.stringify({ intent, model }) }),
   chatTurn: (message: string, conversation_id?: string, model?: string) => req<ChatTurnResult>(`/api/chat/turn`, { method: "POST", body: JSON.stringify({ message, ...(conversation_id ? { conversation_id } : {}), ...(model ? { model } : {}) }) }),
   createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
   models: () => req<{ object: string; data: ModelInfo[] }>(`/api/models`),

@@ -8,6 +8,7 @@ for (const required of [
   "GET /api/pendencies",
   "GET /api/cases/:hash",
   "GET /api/process-types",
+  "GET /api/process-types/:process_id",
   "GET /api/candidates",
   "GET /api/vocabulary",
   "GET /api/grants",
@@ -24,6 +25,8 @@ for (const required of [
   "POST /api/webauthn/sign/verify",
   "POST /api/chat/turn",
 ]) assert.ok(publicRoutes.includes(required), `missing public route ${required}`);
+
+assert.ok(!publicRoutes.includes("POST /api/chat/compile"), "parallel chat compile route must stay removed");
 
 for (const marker of [
   /demo-credential/i,

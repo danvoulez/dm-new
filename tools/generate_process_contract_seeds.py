@@ -70,7 +70,10 @@ def render_migration(rows: list[dict[str, Any]]) -> str:
             [
                 "insert into public.process_contracts(process_id,title,contract,status,source_yml) values (",
                 f"  '{values[0]}','{values[1]}','{values[2]}'::jsonb,'{values[3]}','{values[4]}'",
-                ") on conflict (process_id) do update set title=excluded.title, contract=excluded.contract, status=excluded.status, source_yml=excluded.source_yml;",
+                ") on conflict (process_id) do update set "
+                "registered_hash=case when public.process_contracts.contract=excluded.contract "
+                "then public.process_contracts.registered_hash else null end, "
+                "title=excluded.title, contract=excluded.contract, status=excluded.status, source_yml=excluded.source_yml;",
                 "",
             ]
         )

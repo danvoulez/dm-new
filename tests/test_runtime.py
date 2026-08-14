@@ -24,6 +24,8 @@ def full(**extra):
         'if_doubt': 'attention-raise.v1', 'if_not': 'stop',
         'status': 'registered', 'process_id': process_id,
     }
+    if process_id == 'projection-build.v1':
+        base['projection_spec'] = 'runtime'
     base.update(extra)
     return base
 
