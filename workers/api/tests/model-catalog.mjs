@@ -40,3 +40,22 @@ test("does not retry a failed tunnel request through another hidden transport", 
   assert.equal(response.status, 503);
   assert.equal(calls, 1);
 });
+
+test("sends Cloudflare Access credentials on the selected tunnel transport", async () => {
+  let observed;
+  const response = await goldenBridgeFetch({
+    GOLDEN_BRIDGE_TUNNEL_ID: "tunnel",
+    GOLDEN_BRIDGE_URL: "https://inference.example",
+    GOLDEN_BRIDGE_ACCESS_ID: "access-id",
+    GOLDEN_BRIDGE_ACCESS_SECRET: "access-secret",
+  }, "/v1/models", { headers: { Accept: "application/json" } }, async (url, init) => {
+    observed = { url, headers: init.headers };
+    return new Response("{}", { status: 200 });
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(observed.url, "https://tunnel.cfargotunnel.com/v1/models");
+  assert.equal(observed.headers.Host, "inference.example");
+  assert.equal(observed.headers["CF-Access-Client-Id"], "access-id");
+  assert.equal(observed.headers["CF-Access-Client-Secret"], "access-secret");
+});
