@@ -43,6 +43,13 @@ assert.equal(found.length, 1);
 assert.equal(found[0].process_id, "projection-build.v1");
 assert.equal(found[0].registered_hash, HASH);
 
+const foundFromNaturalRequest = await searchProcesses(
+  client,
+  "Crie uma projeção de teste sobre a aceitação pública da Dream com uma especificação resumida",
+);
+assert.equal(foundFromNaturalRequest.length, 1, "natural request terms must not hide the intended process");
+assert.equal(foundFromNaturalRequest[0].process_id, "projection-build.v1");
+
 const detail = await readProcessContract(client, "projection-build.v1");
 assert.equal(detail.citable, true);
 assert.equal(detail.purpose, "pedido de projeção");
