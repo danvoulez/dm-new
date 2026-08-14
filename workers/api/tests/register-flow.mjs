@@ -65,6 +65,22 @@ assert.equal(waitingResponse.waiting.known, true);
 assert.equal(waitingResponse.waiting.message, 'Para andar, falta: confirmed_by.');
 assert.deepEqual(waitingResponse.missing, ['confirmed_by']);
 
+const inertFields = fields();
+delete inertFields.process_id;
+const inert = await registerFlow(fakeClient, inertFields, {
+  append,
+  loadCatalog: async () => catalog,
+  evaluateReceipt: evaluate,
+  selectReceiver: async () => { throw new Error('inert registration must not reach receiver selection'); },
+});
+const inertResponse = registerResponse(inert);
+assert.equal(inertResponse.registered, true);
+assert.equal(inertResponse.activated, false);
+assert.equal(inertResponse.process_id, null);
+assert.equal(inertResponse.waiting.code, 'no_process_requested');
+assert.equal(inertResponse.waiting.known, true);
+assert.equal(inertResponse.waiting.message, 'Ficou registrado sem ativar nenhum processo.');
+
 
 let persistedFailure;
 try {

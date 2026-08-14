@@ -44,6 +44,24 @@ export type DreamTurn = {
   tool_trace: Array<{ name: string; ok: boolean }>;
 };
 
+function registrationReply(registrations: Array<Record<string, unknown>>): string {
+  const lines = registrations.map((registration) => {
+    const id = String(registration.id ?? "");
+    const fingerprint = String(registration.fingerprint ?? (id.slice(0, 8) || "sem-recibo"));
+    const processId = String(registration.process_id ?? "").trim();
+    const activated = registration.activated === true;
+    const queued = registration.queued === true;
+    const waiting = object(registration.waiting);
+    const waitingMessage = String(waiting.message ?? "").trim();
+
+    if (!processId) return `Registrado · Recibo ${fingerprint} · Apenas registrado; nenhuma ativação foi solicitada.`;
+    if (activated && queued) return `Registrado · Recibo ${fingerprint} · Ativável e encaminhado para execução.`;
+    if (activated) return `Registrado · Recibo ${fingerprint} · Ativável; ainda não encaminhado.`;
+    return `Registrado · Recibo ${fingerprint} · Não ativado${waitingMessage ? `: ${waitingMessage}` : "."}`;
+  });
+  return lines.length === 1 ? lines[0] : `Registros concluídos:\n${lines.map((line) => `- ${line}`).join("\n")}`;
+}
+
 function object(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -125,6 +143,14 @@ export async function runDreamTurn(
         tool_call_id: call.id,
         content: JSON.stringify({ ok, result }),
       });
+    }
+    if (registrations.length) {
+      return {
+        reply: registrationReply(registrations),
+        conversation_id: input.conversation_id,
+        registrations,
+        tool_trace: toolTrace,
+      };
     }
   }
   throw new Error("dream_tool_loop_exhausted");

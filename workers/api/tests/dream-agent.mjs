@@ -63,12 +63,14 @@ function harness(model) {
 {
   const model = scripted([
     { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [{ slots: { did: "registered", this: "Q3 fechou" }, fields: {}, missing: [], citations: [] }] } }] },
-    { content: "Registrei que o Q3 fechou." },
+    { content: "Não foi possível registrar." },
   ]);
   const h = harness(model);
   const turn = await runDreamTurn({ message: "registre que o Q3 fechou", conversation_id: "conv_0003" }, h.deps);
   assert.equal(turn.registrations.length, 1);
   assert.equal("process_id" in h.calls[0][1][0], false);
+  assert.equal(turn.reply, "Registrado · Recibo 00000000 · Apenas registrado; nenhuma ativação foi solicitada.");
+  assert.equal(model.requests.length, 1, "a persisted registration must not be reinterpreted by another model turn");
 }
 
 {
