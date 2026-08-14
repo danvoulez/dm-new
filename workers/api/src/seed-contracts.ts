@@ -31,6 +31,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -77,6 +134,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -123,6 +237,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -169,6 +340,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -220,6 +448,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -268,6 +553,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -314,6 +656,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -365,6 +764,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -415,6 +871,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [
         "target_content_hash",
         "target_process"
@@ -466,6 +979,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],
@@ -514,6 +1084,63 @@ export const SEED_CONTRACTS = [
         "if_not",
         "status"
       ],
+      "slot_rules": {
+        "who": {
+          "meaning": "valor LogLine obrigatório para who",
+          "source": "session",
+          "predicate": "who.present",
+          "values": []
+        },
+        "did": {
+          "meaning": "valor LogLine obrigatório para did",
+          "source": "llm",
+          "predicate": "did.present",
+          "values": []
+        },
+        "this": {
+          "meaning": "valor LogLine obrigatório para this",
+          "source": "llm",
+          "predicate": "this.present",
+          "values": []
+        },
+        "when": {
+          "meaning": "valor LogLine obrigatório para when",
+          "source": "clock",
+          "predicate": "when.present",
+          "values": []
+        },
+        "confirmed_by": {
+          "meaning": "valor LogLine obrigatório para confirmed_by",
+          "source": "session",
+          "predicate": "confirmed_by.present",
+          "values": []
+        },
+        "if_ok": {
+          "meaning": "valor LogLine obrigatório para if_ok",
+          "source": "contract",
+          "predicate": "if_ok.present",
+          "values": []
+        },
+        "if_doubt": {
+          "meaning": "valor LogLine obrigatório para if_doubt",
+          "source": "contract",
+          "predicate": "if_doubt.present",
+          "values": []
+        },
+        "if_not": {
+          "meaning": "valor LogLine obrigatório para if_not",
+          "source": "contract",
+          "predicate": "if_not.present",
+          "values": []
+        },
+        "status": {
+          "meaning": "valor LogLine obrigatório para status",
+          "source": "contract",
+          "predicate": "status.present",
+          "values": []
+        }
+      },
+      "activation_rules_explicit": false,
       "must_include": [],
       "optional_aux": [],
       "allowed_who": [],

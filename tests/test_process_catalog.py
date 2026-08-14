@@ -20,21 +20,21 @@ def test_process_catalog_is_generated_from_contract_files():
     assert worker["adapters"] == ["worker_run"]
 
 
-def test_runnable_processes_reflect_adapter_and_grant_readiness():
+def test_legacy_processes_are_blocked_before_adapter_and_grant_readiness():
     runnable = build_runnable_processes("processes")
     rows = {item["process_id"]: item for item in runnable["processes"]}
 
-    assert rows["memory-register.v1"]["status"] == "runnable"
-    assert rows["projection-build.v1"]["status"] == "runnable"
-    assert rows["inference.v1"]["status"] == "runnable"
-    assert rows["worker-run.v1"]["status"] == "blocked"
-    assert rows["worker-run.v1"]["reason"] == "requires grant/budget/sandbox"
-    assert rows["workflow-run.v1"]["status"] == "blocked"
-    # §21 — route-to-devin is now L4 (dangerous external delegation): grant-gated, blocked.
-    assert rows["route-to-devin.v1"]["status"] == "blocked"
-    assert rows["route-to-devin.v1"]["reason"] == "requires grant/budget/sandbox"
-    # §20 — notification is now L5 (irreversible outbound): blocked.
-    assert rows["notification.v1"]["status"] == "blocked"
+    for process_id in (
+        "memory-register.v1",
+        "projection-build.v1",
+        "inference.v1",
+        "worker-run.v1",
+        "workflow-run.v1",
+        "route-to-devin.v1",
+        "notification.v1",
+    ):
+        assert rows[process_id]["status"] == "contract-only"
+        assert rows[process_id]["reason"] == "activation ritual lacks explicit semantic rules"
 
 
 def test_rendered_catalogs_include_generated_warning_and_tables():
@@ -45,7 +45,7 @@ def test_rendered_catalogs_include_generated_warning_and_tables():
     assert "| Process | Status | Adapter(s) | Danger |" in catalog_md
     assert "| worker-run.v1 | active | worker_run | L4 |" in catalog_md
     assert "Do not hand-edit" in runnable_md
-    assert "| worker-run.v1 | blocked | requires grant/budget/sandbox |" in runnable_md
+    assert "| worker-run.v1 | contract-only | activation ritual lacks explicit semantic rules |" in runnable_md
 
 
 def test_process_generate_cli_writes_catalog_files(tmp_path):
@@ -65,4 +65,4 @@ def test_process_generate_cli_writes_catalog_files(tmp_path):
     assert result["generated"] == ["PROCESS_CATALOG.md", "CURRENT_RUNNABLE_PROCESSES.md"]
     assert (out_dir / "PROCESS_CATALOG.md").exists()
     assert (out_dir / "CURRENT_RUNNABLE_PROCESSES.md").exists()
-    assert "worker-run.v1 | blocked" in (out_dir / "CURRENT_RUNNABLE_PROCESSES.md").read_text()
+    assert "worker-run.v1 | contract-only" in (out_dir / "CURRENT_RUNNABLE_PROCESSES.md").read_text()

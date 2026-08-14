@@ -132,3 +132,91 @@ def test_shipped_catalog_still_parses():
     catalog = load_catalog()
     assert "memory-register.v1" in catalog
     assert catalog["projection-build.v1"].evidence_must_include == ("projection_hashes",)
+
+
+def _semantic_contract(slot_body: str) -> str:
+    return f"""process_id: semantic.v1
+status: active
+activation_ritual:
+  slots:
+{slot_body}
+"""
+
+
+def test_compact_required_slots_are_marked_as_compatibility_rules(tmp_path):
+    path = _write(tmp_path, "compact.v1.yml", f"""process_id: compact.v1
+status: active
+activation_ritual:
+{SLOTS_LINE}
+""")
+
+    contract = load_contract(path)
+
+    assert contract.activation_rules_explicit is False
+    assert contract.slot_rules["who"].predicate == "who.present"
+    assert contract.slot_rules["when"].predicate == "when.present"
+
+
+@pytest.mark.parametrize(
+    ("slot_body", "message"),
+    [
+        (
+            """    who:
+      meaning: autoridade
+      source: browser
+      predicate: who.authorized""",
+            "unknown slot source",
+        ),
+        (
+            """    who:
+      meaning: autoridade
+      source: session
+      predicate:""",
+            "empty slot predicate",
+        ),
+        (
+            """    surprise:
+      meaning: campo estranho
+      source: llm
+      predicate: surprise.present""",
+            "unknown activation slot",
+        ),
+        (
+            """    who:
+      meaning: autoridade
+      source: session
+      predicate: who.authorized
+      values: request_projection""",
+            "slot values must be a list",
+        ),
+    ],
+)
+def test_invalid_semantic_slot_rule_fails_closed(tmp_path, slot_body, message):
+    path = _write(tmp_path, "semantic.v1.yml", _semantic_contract(slot_body))
+
+    with pytest.raises(ValueError, match=message):
+        load_contract(path)
+
+
+def test_explicit_activation_ritual_requires_all_nine_slots(tmp_path):
+    path = _write(
+        tmp_path,
+        "semantic.v1.yml",
+        _semantic_contract(
+            """    who:
+      meaning: autoridade
+      source: session
+      predicate: who.authorized"""
+        ),
+    )
+
+    with pytest.raises(ValueError, match="explicit activation ritual must define all nine slots"):
+        load_contract(path)
+
+
+def test_contract_template_compact_slot_maps_are_executable_schema():
+    contract = load_contract("processes/PROCESS_CONTRACT_TEMPLATE.yml")
+
+    assert contract.activation_rules_explicit is True
+    assert contract.slot_rules["did"].values == ("example_act",)
+    assert contract.slot_rules["when"].source == "clock"

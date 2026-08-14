@@ -45,11 +45,12 @@ def passport_act(**extra):
 
 # --- contract wiring ---------------------------------------------------------
 
-def test_contract_is_runnable():
-    """The contract + registered adapter make oauth-client.v1 runnable, not contract-only."""
+def test_contract_requires_explicit_semantic_rules_before_it_is_runnable():
+    """An adapter cannot make a legacy presence-only contract runnable."""
     runnable = {p["process_id"]: p for p in build_runnable_processes()["processes"]}
     assert "oauth-client.v1" in runnable
-    assert runnable["oauth-client.v1"]["status"] == "runnable"
+    assert runnable["oauth-client.v1"]["status"] == "contract-only"
+    assert runnable["oauth-client.v1"]["reason"] == "activation ritual lacks explicit semantic rules"
     assert runnable["oauth-client.v1"]["adapters"] == ["oauth-client"]
 
 

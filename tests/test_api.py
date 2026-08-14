@@ -109,7 +109,9 @@ def test_process_types_carry_what_a_form_needs(db):
     types = {entry["process_id"]: entry for entry in body["types"]}
     assert "projection-build.v1" in types
     entry = types["projection-build.v1"]
-    assert entry["runnable"] is True
+    assert entry["runnable"] is False
+    assert entry["readiness"] == "contract-only"
+    assert entry["readiness_reason"] == "activation ritual lacks explicit semantic rules"
     assert entry["needs_approval"] is False
     assert "requires" in entry and "accepts" in entry
 
