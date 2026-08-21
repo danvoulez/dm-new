@@ -5,55 +5,97 @@
 Please report security issues **privately**. Do not open a public issue for a
 vulnerability.
 
-- Use GitHub's **[Report a vulnerability](https://github.com/danvoulez/dream-machine/security/advisories/new)**
+- Use GitHub's **[Report a vulnerability](https://github.com/danvoulez/dm-new/security/advisories/new)**
   (Security → Advisories) to open a private advisory, **or**
 - email the maintainers (see the repository owner's profile).
 
-Include: affected version/commit, a description, reproduction steps, and impact. We aim
-to acknowledge within a few business days and will coordinate a fix and disclosure
-timeline with you.
+Include the affected version/commit, a description, reproduction steps, and impact.
 
 ## Supported versions
 
-This project is pre-1.0. Security fixes target the `main` branch and the latest release.
+This project is pre-1.0. Security fixes target `main` and the latest release.
 
-## Security model (what the design does and does not guarantee)
+## Security model
 
-This runtime is built around explicit closure discipline. Understanding the boundaries
-helps you report meaningful issues.
+### Deterministic receipt identity is load-bearing
 
-- **Determinism is load-bearing.** An Act's identity is the SHA-256 of its
-  [RFC 8785 (JCS)](https://www.rfc-editor.org/rfc/rfc8785) canonical bytes. Canonicalization
-  uses the vendored Trail of Bits reference implementation (`lab/_vendor/rfc8785/`) and is
-  proven against the official conformance vectors. **A divergence that makes two
-  conformant implementations hash the same Act to different bytes is a security bug.**
+Receipt v1 separates semantic and occurrence identity:
 
-- **Integrity vs. authorship.** A content hash proves a record was not altered; it does
-  **not** prove who wrote it. Authorship is established by the cryptographic binding layer.
+```text
+content_hash  = H(JCS(LogLine 9 + AUX))
+envelope_hash = H(JCS(envelope))
+tuple_hash    = H(content_hash + envelope_hash)
+```
 
-- **Authority — two layers:**
-  - *Structural* (`lab/authority.py`): authorities and grants are registered append-only
-    Acts, revocable and traceable to a genesis. This is auditable but **not, by itself,
-    cryptographically secure** — anyone able to write the ledger (e.g. a Postgres
-    `service_role`) can forge an authority Act.
-  - *Cryptographic* (`lab/signing/`, optional `[webauthn]` extra): a passkey/WebAuthn
-    (FIDO2) assertion over the Act's `content_hash`. Hardware-bound, biometric/PIN-gated;
-    an LLM cannot produce it.
+A divergence in JCS/canonicalization or in any of these hash-domain rules is a security
+issue. `content_hash` must not be mistaken for occurrence identity when envelope ancestry
+matters.
 
-- **Dangerous work fails closed.** All **L4/L5** execution requires a verified passkey
-  signoff on the grant. With no signoff, an invalid signature, or the crypto extra
-  absent, the work is **blocked** (`grant_unsigned` / `signature_layer_unavailable` /
-  `signoff_signer_mismatch`), never run.
+### Integrity is not authorship
 
-- **Ledger hardening** (`migrations/`): `public.logline_acts` is append-only (UPDATE/DELETE
-  blocked by triggers even for `service_role`) with RLS enabled and **no policies** by
-  design (service-role-only writes). Realtime is a bell, never the only copy.
+A hash proves deterministic content binding. It does **not** prove who authored or was
+entitled to perform the semantic act. Actor (`who`), scribe/caller identity, grants, and
+cryptographic signoff are distinct facts.
 
-- **Out of scope / known boundaries:** the browser/client WebAuthn ceremony (assertions
-  produced by a real passkey in a frontend) is not part of this server-side core;
-  enrollment attestation trust still depends on a recognized registrar. Operational
-  secrets (Supabase `service_role`, access tokens) must be kept server-side.
+### Verify before append
 
-If you find a way to advance state without legitimate closure — a silent drop, a fake
-completion, forged authority, or non-deterministic hashing — that is exactly the class of
-issue we want to hear about.
+Canonical semantic writes are verified before ledger mutation. A path that silently fills
+missing semantics, changes authored content to make verification pass, or appends an
+objectively invalid proposal violates the kernel boundary.
+
+### Process ancestry is immutable
+
+For canonical process instances:
+
+- `opened_process` content hash identifies the instance;
+- descendant `envelope.process` points to that opening hash;
+- descendant `envelope.parent` points to the prior occurrence `tuple_hash`.
+
+Forks, stale-parent acceptance, or treating mutable process state as stronger than ledger
+ancestry are security-relevant integrity failures.
+
+### Authority has structural and cryptographic layers
+
+- Structural authority/grant records are append-only and auditable.
+- WebAuthn/passkey signoff provides the cryptographic human authorization boundary used by
+  dangerous work.
+
+Anyone with privileged database credentials may still be able to forge structural records;
+protect service-role and operational secrets accordingly.
+
+### Dangerous work fails closed
+
+L4/L5 effects require the applicable grant/signoff and safety constraints. Unknown
+activities, missing or invalid grants, invalid signatures, expired leases, stale custody,
+and unmet evidence obligations must not be converted into successful execution.
+
+### Custody is coordination, not authority
+
+Claims, leases, attempts, and current-work rows are ephemeral runtime state. Before an
+effect, the executor re-projects the process head. A stale queue/custody row must never be
+able to advance a process that has moved on.
+
+### Projections are not truth
+
+Search indexes, UI summaries, projections, mutable caches, and compatibility queues are
+rebuildable/non-authoritative. A way to advance canonical state by editing one of these is
+a security bug.
+
+### Ledger hardening
+
+`public.logline_acts` is append-only; mutation protections and RLS are part of the security
+boundary. Realtime/event delivery is a bell, never the only copy of authority.
+
+## High-value reports
+
+We particularly want reports that demonstrate any of the following:
+
+- verify-after-append behavior on a canonical path;
+- silent semantic correction or fabrication;
+- receipt/JCS/hash-domain divergence;
+- process-parent or process-instance ancestry bypass;
+- stale custody executing after the process head changed;
+- grant/WebAuthn bypass for dangerous effects;
+- fake completion without required evidence;
+- mutable projections or compatibility tables overriding ledger truth;
+- sensitive operational credentials exposed to clients or models.
