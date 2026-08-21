@@ -1,9 +1,4 @@
 import type { PgClient } from "./db";
-import { appendAct } from "./db";
-import { loadContracts } from "./contracts";
-import { evaluate } from "./evaluator";
-import { registerFlow, registerResponse } from "./register-flow";
-import { caseView, pendenciesView, receiverSelect } from "./runtime";
 import {
   DREAM_TOOL_DEFINITIONS,
   runDreamTurn,
@@ -11,12 +6,8 @@ import {
   type DreamModelRequest,
   type DreamModelResponse,
 } from "./dream-agent";
-import {
-  assembleAct,
-  readProcessContract,
-  searchProcesses,
-  type FormalizedActProposal,
-} from "./process-tools";
+import type { ActFields } from "./receipt";
+import { about as aboutTool, append as appendTool, search as searchTool } from "./universal-tools";
 import type { WebAuthnEnv } from "./webauthn";
 import { fetchModelCatalog, goldenBridgeFetch, requireExplicitCatalogModel } from "./model-catalog";
 
@@ -163,26 +154,9 @@ export async function runChatTurn(
     trusted_context: { identity, now: edgeNow },
   }, {
     model: bridgeModel(env, selectedModel.id),
-    searchProcesses: (query) => searchProcesses(client, query),
-    readProcessContract: (processId) => readProcessContract(client, processId),
-    formalizeActs: async (proposals: FormalizedActProposal[]) => {
-      const processCatalog = await loadContracts(client);
-      const outcomes: Array<Record<string, unknown>> = [];
-      for (const proposal of proposals) {
-        const processId = String(proposal.process_id ?? "");
-        const fields = assembleAct(proposal, processId ? processCatalog.get(processId) : undefined);
-        const outcome = await registerFlow(client, fields, {
-          append: appendAct,
-          loadCatalog: loadContracts,
-          evaluateReceipt: evaluate,
-          selectReceiver: receiverSelect,
-        }, identity ? { identity } : {});
-        outcomes.push(registerResponse(outcome));
-      }
-      return outcomes;
-    },
-    getCase: (hash) => caseView(client, hash),
-    getPendencies: () => pendenciesView(client, undefined, 20),
+    about: () => aboutTool(client),
+    search: (query, limit) => searchTool(client, query, limit),
+    append: (act: ActFields) => appendTool(client, act, identity ? { identity } : {}),
   });
   await storeConversationPair(env.PROJECTIONS, conversationId, input.message, result.reply, result.registrations);
   return result;
