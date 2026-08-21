@@ -103,11 +103,23 @@ async function requireTupleHashes(client: PgClient, refs: string[]): Promise<voi
 }
 
 async function requireProcessType(client: PgClient, processId: string): Promise<string | null> {
-  const result = await client.query<{ process_id: string; registered_hash: string | null }>(
-    "SELECT process_id, registered_hash FROM public.process_contracts WHERE process_id=$1 LIMIT 1",
+  try {
+    const projected = await client.query<{ process_id: string; registered_hash: string | null }>(
+      "SELECT process_id,registered_hash FROM public.current_process_types WHERE process_id=$1 LIMIT 1",
+      [processId],
+    );
+    if (projected.rows[0]) return projected.rows[0].registered_hash ?? null;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (!/current_process_types|does not exist|undefined table/i.test(detail)) throw error;
+  }
+
+  // Transitional fallback only for installations that have not emitted/imported type Acts.
+  const legacy = await client.query<{ process_id: string; registered_hash: string | null }>(
+    "SELECT process_id,registered_hash FROM public.process_contracts WHERE process_id=$1 LIMIT 1",
     [processId],
   );
-  const row = result.rows[0];
+  const row = legacy.rows[0];
   if (!row) fail("process_type_not_found", `process type does not exist: ${processId}`, { process_id: processId });
   return row.registered_hash ?? null;
 }
