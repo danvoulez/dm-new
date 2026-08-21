@@ -23,10 +23,16 @@ export async function withClient<T>(env: PgEnv, fn: (client: PgClient) => Promis
 export async function appendAct(client: PgClient, fields: ActFields): Promise<Receipt> {
   const receipt = await mintReceipt(fields);
   await client.query(
-    `INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act)
-     VALUES ($1,$2,$3,$4::jsonb)
+    `INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act, envelope_hash)
+     VALUES ($1,$2,$3,$4::jsonb,$5)
      ON CONFLICT (content_hash) DO NOTHING`,
-    [receipt.id, receipt.hashes.tuple_hash, receipt.receipt_version, canonicalJson(receipt)],
+    [
+      receipt.id,
+      receipt.hashes.tuple_hash,
+      receipt.receipt_version,
+      canonicalJson(receipt),
+      receipt.hashes.envelope_hash,
+    ],
   );
   return receipt;
 }
