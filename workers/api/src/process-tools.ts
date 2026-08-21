@@ -118,8 +118,12 @@ function proposalParts(proposal: FormalizedActProposal): {
   fields: Record<string, unknown>;
   citations: string[];
 } {
-  const slots = proposal.slots && typeof proposal.slots === "object" && !Array.isArray(proposal.slots) ? proposal.slots : {};
-  const fields = proposal.fields && typeof proposal.fields === "object" && !Array.isArray(proposal.fields) ? proposal.fields : {};
+  const slots: Record<string, unknown> = proposal.slots && typeof proposal.slots === "object" && !Array.isArray(proposal.slots)
+    ? proposal.slots
+    : {};
+  const fields: Record<string, unknown> = proposal.fields && typeof proposal.fields === "object" && !Array.isArray(proposal.fields)
+    ? proposal.fields
+    : {};
   const citations = Array.isArray(proposal.citations) ? proposal.citations.filter((item): item is string => typeof item === "string") : [];
 
   for (const key of Object.keys(slots)) {
