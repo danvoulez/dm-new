@@ -11,6 +11,8 @@ export type RegisterOutcome = {
   receipt: Receipt;
   decision: Evaluation;
   queued: boolean;
+  /** Optional v1.2 process-instance/custody consequence derived after append. */
+  process_route?: unknown;
 };
 
 export class RegisterActivationError extends Error {
@@ -33,6 +35,8 @@ export type RegisterFlowDeps = {
   loadCatalog: (client: PgClient) => Promise<Map<string, ProcessContract>>;
   evaluateReceipt: typeof evaluate;
   selectReceiver: (client: PgClient, frequency: string, limit?: number) => Promise<Array<{ hash: string; evaluation: Evaluation; queued: unknown; doubt: unknown }>>;
+  /** Phase 3 deterministic route projection; never authors or appends a semantic Act. */
+  routeProcessReceipt?: (client: PgClient, receipt: Receipt) => Promise<unknown>;
 };
 
 /**
@@ -66,15 +70,33 @@ export async function registerFlow(
       }
     }
 
-    return { verification, receipt, decision, queued };
+    const processRoute = deps.routeProcessReceipt
+      ? await deps.routeProcessReceipt(client, receipt)
+      : undefined;
+
+    return {
+      verification,
+      receipt,
+      decision,
+      queued,
+      ...(processRoute === undefined ? {} : { process_route: processRoute }),
+    };
   } catch (error) {
     throw new RegisterActivationError(receipt, error);
   }
 }
 
+function routeObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
 export function registerResponse(outcome: RegisterOutcome) {
   const { verification, receipt, decision, queued } = outcome;
   const envelopeHash = "envelope_hash" in receipt.hashes ? receipt.hashes.envelope_hash : null;
+  const processRoute = routeObject(outcome.process_route);
+  const processState = routeObject(processRoute?.state);
+  const custody = routeObject(processRoute?.custody);
+  const processActivated = Boolean(processState && processState.status === "open");
   const response: Record<string, unknown> = {
     verified: true,
     verification_checks: verification.checks,
@@ -85,11 +107,14 @@ export function registerResponse(outcome: RegisterOutcome) {
     envelope_hash: envelopeHash,
     fingerprint: receipt.id.slice(0, 8),
     tuple_fingerprint: receipt.hashes.tuple_hash.slice(0, 8),
-    activated: !!decision.activate,
-    process_id: decision.process_id ?? null,
-    queued,
+    activated: !!decision.activate || processActivated,
+    process_id: processState?.process_id ?? decision.process_id ?? null,
+    process_instance: processState?.process_instance ?? null,
+    queued: queued || Boolean(custody),
+    ...(processState ? { process_state: processState } : {}),
+    ...(custody ? { custody } : {}),
   };
-  if (!decision.activate) {
+  if (!decision.activate && !processState) {
     response.waiting = renderMessage(String(decision.reason || "unknown"), decision);
     response.missing = decision.missing_aux?.length ? decision.missing_aux : decision.missing_slots;
   }
