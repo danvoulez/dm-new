@@ -2,13 +2,14 @@
 
 Production custody remains ``public.logline_acts``; this SQLite store mirrors the
 shape closely enough for deterministic local runtime tests and development. Schema v4
-admits historical receipt v0 and canonical receipt v1, and persists envelope identity.
+admits historical receipt v0 and canonical receipt v1. ``tuple_hash`` is row identity;
+``content_hash`` is indexed semantic identity and may repeat across envelopes.
 """
 from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -20,8 +21,8 @@ SCHEMA_VERSION = 4
 
 TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS logline_acts (
-  content_hash TEXT PRIMARY KEY CHECK(length(content_hash) = 64 AND content_hash NOT GLOB '*[^0-9a-f]*'),
-  tuple_hash TEXT NOT NULL CHECK(length(tuple_hash) = 64 AND tuple_hash NOT GLOB '*[^0-9a-f]*'),
+  content_hash TEXT NOT NULL CHECK(length(content_hash) = 64 AND content_hash NOT GLOB '*[^0-9a-f]*'),
+  tuple_hash TEXT PRIMARY KEY CHECK(length(tuple_hash) = 64 AND tuple_hash NOT GLOB '*[^0-9a-f]*'),
   receipt_version TEXT NOT NULL,
   act TEXT NOT NULL,
   inserted_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS logline_acts (
 """
 
 INDEX_TRIGGER_DDL = """
+CREATE INDEX IF NOT EXISTS logline_acts_content_hash_idx ON logline_acts(content_hash);
 CREATE INDEX IF NOT EXISTS logline_acts_if_ok_idx ON logline_acts(if_ok);
 CREATE INDEX IF NOT EXISTS logline_acts_status_idx ON logline_acts(status);
 CREATE INDEX IF NOT EXISTS logline_acts_inserted_idx ON logline_acts(inserted_at);
@@ -100,16 +102,20 @@ def _needs_v4_rebuild(db: sqlite3.Connection) -> bool:
     if not row:
         return False
     sql = str(row[0] or "")
-    return "receipt_version = 'logline.receipt.v0'" in sql and "logline.receipt.v1" not in sql
+    return (
+        "receipt_version = 'logline.receipt.v0'" in sql
+        or "content_hash TEXT PRIMARY KEY" in sql
+    )
 
 
 def _migrate_v3_to_v4(db: sqlite3.Connection) -> None:
-    """Rebuild the local append-only table so the old v0 CHECK does not strand users."""
+    """Rebuild the append-only table without rewriting any historical receipt bytes."""
     if not _needs_v4_rebuild(db):
         return
     db.executescript("""
       DROP TRIGGER IF EXISTS logline_acts_append_only_update;
       DROP TRIGGER IF EXISTS logline_acts_append_only_delete;
+      DROP INDEX IF EXISTS logline_acts_content_hash_idx;
       DROP INDEX IF EXISTS logline_acts_if_ok_idx;
       DROP INDEX IF EXISTS logline_acts_status_idx;
       DROP INDEX IF EXISTS logline_acts_inserted_idx;
@@ -142,7 +148,6 @@ def connect(path: str | Path) -> sqlite3.Connection:
     db = sqlite3.connect(path)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
-    # Create schema_meta first so a legacy database can be inspected/rebuilt safely.
     db.execute("CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     _migrate_v3_to_v4(db)
     db.executescript(DDL)
@@ -197,7 +202,15 @@ def append_receipt(db: sqlite3.Connection, receipt: Mapping[str, Any], *, commit
 
 
 def get(db: sqlite3.Connection, content_hash: str) -> dict[str, Any] | None:
-    row = db.execute("SELECT act FROM logline_acts WHERE content_hash = ?", (content_hash,)).fetchone()
+    row = db.execute(
+        "SELECT act FROM logline_acts WHERE content_hash = ? ORDER BY inserted_at, tuple_hash LIMIT 1",
+        (content_hash,),
+    ).fetchone()
+    return json.loads(row["act"]) if row else None
+
+
+def get_tuple(db: sqlite3.Connection, tuple_hash: str) -> dict[str, Any] | None:
+    row = db.execute("SELECT act FROM logline_acts WHERE tuple_hash = ?", (tuple_hash,)).fetchone()
     return json.loads(row["act"]) if row else None
 
 
@@ -219,7 +232,7 @@ def list_acts(db: sqlite3.Connection, limit: int = 20, *, if_ok: str | None = No
         params.append(status)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     params.append(limit)
-    rows = db.execute(f"SELECT act FROM logline_acts {where} ORDER BY inserted_at DESC LIMIT ?", params).fetchall()
+    rows = db.execute(f"SELECT act FROM logline_acts {where} ORDER BY inserted_at DESC, tuple_hash DESC LIMIT ?", params).fetchall()
     return [json.loads(row["act"]) for row in rows]
 
 
