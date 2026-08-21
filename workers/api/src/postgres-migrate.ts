@@ -1,11 +1,13 @@
 import type { PgClient } from "./db";
+import { migrateLedgerRegistry } from "./ledger-registry";
 
 /**
  * Upgrade the canonical Postgres ledger from receipt v0 storage assumptions to v1.
  *
  * This is intentionally idempotent because `/api/migrate` is an operational bootstrap
  * endpoint. It preserves every historical row byte-for-byte, changes row identity from
- * content_hash to tuple_hash, and makes content_hash a non-unique semantic index.
+ * content_hash to tuple_hash, makes content_hash a non-unique semantic index, and then
+ * installs the pure ledger-native registry projections used by Phase 2 runtime discovery.
  */
 export async function migrateReceiptV1(client: PgClient): Promise<void> {
   await client.query(`
@@ -65,4 +67,5 @@ export async function migrateReceiptV1(client: PgClient): Promise<void> {
         )
       );
   `);
+  await migrateLedgerRegistry(client);
 }
