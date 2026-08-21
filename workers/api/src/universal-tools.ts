@@ -3,10 +3,10 @@ import { loadContracts } from "./contracts";
 import { appendAct, type PgClient } from "./db";
 import { evaluate } from "./evaluator";
 import { aboutSystem, searchLedger } from "./ledger-registry";
+import { legacyReceiverSelect } from "./legacy-runtime";
 import { currentCustody } from "./process-inspect";
 import { processCurrentState, routeProcessReceipt } from "./process-machine";
 import { registerFlow, registerResponse } from "./register-flow";
-import { receiverSelect } from "./runtime";
 import { SLOTS, type ActFields } from "./receipt";
 
 const SYSTEM_FIELDS = new Set(["id", "hashes", "receipt_version", "json_canonicalization"]);
@@ -76,7 +76,7 @@ export async function append(
     append: appendAct,
     loadCatalog: loadContracts,
     evaluateReceipt: evaluate,
-    selectReceiver: receiverSelect,
+    selectReceiver: legacyReceiverSelect,
     routeProcessReceipt,
   }, context);
   return registerResponse(outcome);
