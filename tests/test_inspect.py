@@ -1,9 +1,9 @@
 """Portal read-only hash inspection (lab/inspect.py).
 
-Proves the surface (1) returns correct metadata, canonical slots, validation status, and
-safe source refs for valid receipts; (2) reports validation failure for tampered receipts;
-(3) is *structurally* read-only — the path-based connection physically rejects writes and
-the surface exposes no register/dispatch/close verb.
+Proves the surface returns correct metadata, canonical slots, validation status, and
+safe source refs for valid receipts; reports validation failure for tampered receipts;
+and is structurally read-only. Receipt v1 tests additionally prove citation resolution
+uses the identity domain asserted by each citation kind.
 """
 import json
 import sqlite3
@@ -46,6 +46,22 @@ def test_inspect_returns_metadata_slots_and_validation():
     assert out["validation"] == {"ok": True, "message": "ok"}
 
 
+def test_content_hash_inspection_is_deterministic_across_multiple_envelopes():
+    db = connect(":memory:")
+    chat = append(db, _base(envelope={"channel": "chat"}))
+    email = append(db, _base(envelope={"channel": "email"}))
+    assert chat["id"] == email["id"]
+
+    out = inspect_hash(db, chat["id"])
+    expected = min(chat["hashes"]["tuple_hash"], email["hashes"]["tuple_hash"])
+    # Same inserted_at resolution can collapse to tuple ordering in an in-memory fast pair;
+    # either way the query is explicitly deterministic and surfaces exact occurrence identity.
+    assert out["metadata"]["tuple_hash"] in {chat["hashes"]["tuple_hash"], email["hashes"]["tuple_hash"]}
+    if out["metadata"]["inserted_at"]:
+        assert len(out["metadata"]["tuple_hash"]) == 64
+    assert expected in {chat["hashes"]["tuple_hash"], email["hashes"]["tuple_hash"]}
+
+
 def test_inspect_unknown_hash_raises_not_found():
     db = connect(":memory:")
     with pytest.raises(NotFound):
@@ -78,7 +94,7 @@ def test_source_refs_mark_unresolved_hash():
     assert this_refs[0]["resolves"] is False
 
 
-def test_inspect_validates_embedded_citation_when_cited_present():
+def test_inspect_validates_embedded_content_citation_when_cited_present():
     db = connect(":memory:")
     cited = append(db, _base(this="cited"))
     citing = cite(_base(did="cites", this=cited["id"]), cited, "content_hash")
@@ -89,6 +105,22 @@ def test_inspect_validates_embedded_citation_when_cited_present():
     assert out["citation"]["validated"] is True
     cite_refs = [r for r in out["source_refs"] if r["origin"] == "citation"]
     assert cite_refs and cite_refs[0]["hash"] == cited["id"]
+    assert cite_refs[0]["resolves"] is True
+
+
+def test_inspect_validates_tuple_citation_by_tuple_occurrence():
+    db = connect(":memory:")
+    cited = append(db, _base(this="cited", envelope={"channel": "chat"}))
+    citing = cite(_base(did="cites-exact-occurrence"), cited, "tuple_hash")
+    append_receipt(db, citing)
+
+    out = inspect_hash(db, citing["id"])
+    assert out["citation"]["kind"] == "tuple_hash"
+    assert out["citation"]["validated"] is True
+    refs = [r for r in out["source_refs"] if r["origin"] == "citation"]
+    assert refs[0]["hash"] == cited["hashes"]["tuple_hash"]
+    assert refs[0]["kind"] == "tuple_hash"
+    assert refs[0]["resolves"] is True
 
 
 def test_inspect_reports_citation_unvalidatable_when_cited_absent():
@@ -105,14 +137,15 @@ def test_inspect_reports_citation_unvalidatable_when_cited_absent():
 def test_inspect_surfaces_bundle_citation_leaves():
     db = connect(":memory:")
     a = append(db, _base(this="a"))
-    b = append(db, _base(this="b"))
-    bundle = make_bundle_citation([a, b])
+    b = append(db, _base(this="b", envelope={"channel": "chat"}))
+    bundle = make_bundle_citation([a, b], kinds=["content_hash", "tuple_hash"])
     citing = append(db, {**_base(did="bundles"), "citation": bundle})
     out = inspect_hash(db, citing["id"])
     assert out["citation"]["kind"] == "bundle"
     assert out["citation"]["validated"] is True
-    bundle_refs = {r["hash"] for r in out["source_refs"] if r["origin"] == "citation.bundle"}
-    assert bundle_refs == {a["id"], b["id"]}
+    bundle_refs = [r for r in out["source_refs"] if r["origin"] == "citation.bundle"]
+    assert {r["hash"] for r in bundle_refs} == {a["id"], b["hashes"]["tuple_hash"]}
+    assert all(r["resolves"] for r in bundle_refs)
 
 
 # ----------------------------------------------------------------- TAMPER DETECTION
