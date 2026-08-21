@@ -1,9 +1,7 @@
-"""Citation composition profile (lab/citation.py).
+"""Citation composition profile under receipt v1 identity.
 
-A receipt cites another receipt by an *explicit* hash choice. These tests pin each
-citation kind, prove the nine invariant slots stay untouched (citation rides as additive
-AUX), and prove tamper detection — at the citation layer (validate_*) and at the citing
-receipt's own content hash (receipt.verify), since the citation is bound into it.
+A content-hash citation binds the semantic Act (9+AUX) independent of envelope.
+A tuple-hash citation binds that semantic Act in its exact envelope/context.
 """
 import pytest
 
@@ -25,48 +23,53 @@ def _base(**extra):
     base = dict(
         who="dan", did="rested", this="slept_well", when="2026-05-17T07:30:00Z",
         confirmed_by="dan", if_ok="continue_minilab_work", if_doubt="", if_not="",
-        status="claimed",
+        status="claimed", envelope={},
     )
     base.update(extra)
     return base
 
 
 def _cited_with_aux():
-    """A cited receipt carrying the AUX fields that the AUX-resident kinds bind to."""
     return mint(_base(
         process_contract_hash="a" * 64,
         result_hash="b" * 64,
     ))
 
 
-# ----------------------------------------------------------- EACH CITATION KIND
-
-def test_content_hash_citation_binds_full_identity():
+def test_content_hash_citation_binds_semantic_identity():
     cited = mint(_base())
     citation = make_citation(cited, "content_hash")
     assert citation["kind"] == "content_hash"
     assert citation["cited_hash"] == cited["hashes"]["content_hash"] == cited["id"]
-    validate_citation(citation, cited)  # does not raise
+    validate_citation(citation, cited)
 
 
-def test_tuple_hash_citation_binds_slots_only():
-    cited = mint(_base())
+def test_tuple_hash_citation_binds_content_plus_envelope():
+    cited = mint(_base(envelope={"channel": "chat"}))
     citation = make_citation(cited, "tuple_hash")
     assert citation["cited_hash"] == cited["hashes"]["tuple_hash"]
     validate_citation(citation, cited)
 
 
-def test_tuple_hash_citation_survives_aux_change_but_content_hash_does_not():
-    """The whole point of the tuple_hash kind: it binds the asserted act, not its AUX."""
-    cited = mint(_base())
-    cited_more_aux = mint(_base(note="incidental"))
-    tuple_cite = make_citation(cited, "tuple_hash")
+def test_content_hash_survives_envelope_change_but_tuple_hash_does_not():
+    cited = mint(_base(envelope={"channel": "chat"}))
+    same_content_new_context = mint(_base(envelope={"channel": "email"}))
     content_cite = make_citation(cited, "content_hash")
-    # tuple_hash is invariant under AUX, so the tuple citation still validates against the
-    # AUX-laden re-mint; the content citation does not.
-    validate_citation(tuple_cite, cited_more_aux)
+    tuple_cite = make_citation(cited, "tuple_hash")
+    validate_citation(content_cite, same_content_new_context)
+    with pytest.raises(ReceiptError, match="tuple_hash mismatch"):
+        validate_citation(tuple_cite, same_content_new_context)
+
+
+def test_both_content_and_tuple_hash_change_when_aux_changes():
+    cited = mint(_base())
+    cited_more_aux = mint(_base(note="not incidental to semantic identity"))
+    content_cite = make_citation(cited, "content_hash")
+    tuple_cite = make_citation(cited, "tuple_hash")
     with pytest.raises(ReceiptError, match="content_hash mismatch"):
         validate_citation(content_cite, cited_more_aux)
+    with pytest.raises(ReceiptError, match="tuple_hash mismatch"):
+        validate_citation(tuple_cite, cited_more_aux)
 
 
 def test_process_contract_hash_citation_reads_aux_field():
@@ -84,7 +87,7 @@ def test_result_hash_citation_reads_aux_field():
 
 
 def test_aux_kind_citation_fails_when_cited_lacks_the_field():
-    cited = mint(_base())  # no process_contract_hash AUX
+    cited = mint(_base())
     with pytest.raises(ReceiptError, match="no process_contract_hash"):
         make_citation(cited, "process_contract_hash")
 
@@ -99,7 +102,7 @@ def test_bundle_citation_binds_multiple_receipts_in_order():
 
 def test_bundle_citation_supports_mixed_kinds():
     a = _cited_with_aux()
-    b = mint(_base(this="b"))
+    b = mint(_base(this="b", envelope={"channel": "chat"}))
     citation = make_bundle_citation([a, b], kinds=["result_hash", "tuple_hash"])
     assert [leaf["kind"] for leaf in citation["leaves"]] == ["result_hash", "tuple_hash"]
     validate_bundle_citation(citation, [a, b])
@@ -117,28 +120,22 @@ def test_every_direct_kind_round_trips():
         validate_citation(make_citation(cited, kind), cited)
 
 
-# ------------------------------------------------------------ NINE SLOTS UNTOUCHED
-
 def test_citation_is_additive_aux_and_does_not_touch_slots():
     cited = mint(_base())
-    citing = cite(_base(who="auditor", did="cited", this=cited["id"]), cited, "content_hash")
-    # The citing receipt's own nine slots are exactly what we passed — citation is AUX.
-    assert {slot: citing[slot] for slot in SLOTS} == {
-        slot: _base(who="auditor", did="cited", this=cited["id"])[slot] for slot in SLOTS
-    }
+    input_fields = _base(who="auditor", did="cited", this=cited["id"])
+    citing = cite(input_fields, cited, "content_hash")
+    assert {slot: citing[slot] for slot in SLOTS} == {slot: input_fields[slot] for slot in SLOTS}
     assert citing["citation"]["kind"] == "content_hash"
     assert verify(citing) == (True, "ok")
     validate_citation(citing["citation"], cited)
 
 
 def test_cite_binds_citation_into_citing_content_hash():
-    """Because the citation is AUX, mutating it post-mint breaks the citing receipt's hash."""
     cited = mint(_base())
     citing = cite(_base(did="cited"), cited)
     tampered = dict(citing)
     tampered["citation"] = {**citing["citation"], "cited_hash": "0" * 64}
-    ok, _ = verify(tampered)
-    assert ok is False  # citing receipt no longer reproduces its own content hash
+    assert verify(tampered)[0] is False
 
 
 def test_cite_rejects_preexisting_citation():
@@ -146,8 +143,6 @@ def test_cite_rejects_preexisting_citation():
     with pytest.raises(ReceiptError, match="already carry a citation"):
         cite({**_base(), "citation": {}}, cited)
 
-
-# ----------------------------------------------------------------- TAMPER DETECTION
 
 def test_flipped_cited_hash_is_detected():
     cited = mint(_base())
@@ -158,8 +153,7 @@ def test_flipped_cited_hash_is_detected():
 
 
 def test_swapped_kind_is_detected():
-    """Claiming content_hash while carrying the tuple_hash value must fail."""
-    cited = mint(_base())
+    cited = mint(_base(envelope={"channel": "chat"}))
     citation = make_citation(cited, "tuple_hash")
     forged = {**citation, "kind": "content_hash"}
     with pytest.raises(ReceiptError, match="content_hash mismatch"):
@@ -170,7 +164,7 @@ def test_tampered_cited_receipt_is_detected():
     cited = mint(_base())
     citation = make_citation(cited, "content_hash")
     tampered_cited = dict(cited)
-    tampered_cited["status"] = "claimed_x"  # cited slot mutated, hashes now stale
+    tampered_cited["status"] = "claimed_x"
     with pytest.raises(ReceiptError):
         validate_citation(citation, tampered_cited)
 
@@ -185,10 +179,8 @@ def test_bundle_leaf_tamper_is_detected():
 
 def test_bundle_reorder_changes_hash():
     a, b = mint(_base(this="a")), mint(_base(this="b"))
-    forward = bundle_hash([{"kind": "content_hash", "hash": a["id"]},
-                           {"kind": "content_hash", "hash": b["id"]}])
-    reversed_ = bundle_hash([{"kind": "content_hash", "hash": b["id"]},
-                             {"kind": "content_hash", "hash": a["id"]}])
+    forward = bundle_hash([{"kind": "content_hash", "hash": a["id"]}, {"kind": "content_hash", "hash": b["id"]}])
+    reversed_ = bundle_hash([{"kind": "content_hash", "hash": b["id"]}, {"kind": "content_hash", "hash": a["id"]}])
     assert forward != reversed_
 
 
