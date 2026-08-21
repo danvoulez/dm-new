@@ -19,13 +19,24 @@ function slots(overrides = {}) {
   };
 }
 
+function pureAct(overrides = {}) {
+  return {
+    slots: slots(),
+    fields: {},
+    envelope: {},
+    citations: [],
+    ...overrides,
+  };
+}
+
 const formalizeDefinition = DREAM_TOOL_DEFINITIONS.find((tool) => tool.name === "formalize_acts");
 assert.ok(formalizeDefinition);
 const actSchema = formalizeDefinition.parameters.properties.acts.items;
-assert.deepEqual(actSchema.required, ["slots", "fields", "citations"]);
+assert.deepEqual(actSchema.required, ["slots", "fields", "envelope", "citations"]);
 assert.deepEqual(Object.keys(actSchema.properties.slots.properties), SLOT_NAMES);
 assert.deepEqual([...actSchema.properties.slots.required], SLOT_NAMES);
 assert.ok(actSchema.properties.fields);
+assert.ok(actSchema.properties.envelope);
 assert.ok(actSchema.properties.citations);
 
 function scripted(responses) {
@@ -72,6 +83,7 @@ function harness(model) {
   assert.deepEqual(h.registered, []);
   assert.equal(model.requests[0].messages.filter((item) => item.role === "system").length, 1);
   assert.match(model.requests[0].messages[0].content, /LogLine inteira/i);
+  assert.match(model.requests[0].messages[0].content, /envelope explícito/i);
   assert.match(model.requests[0].messages[0].content, /backend não preenche/i);
   assert.match(model.requests[0].messages[0].content, /ator do acontecimento/i);
 }
@@ -86,8 +98,9 @@ function harness(model) {
   }, h.deps);
   const systems = model.requests[0].messages.filter((item) => item.role === "system");
   assert.equal(systems.length, 2);
-  assert.match(systems[1].content, /session_identity=dan@example\.com/);
-  assert.match(systems[1].content, /now=2026-08-14T10:00:00\.000Z/);
+  assert.match(systems[1].content, /authenticated_identity/);
+  assert.match(systems[1].content, /dan@example\.com/);
+  assert.match(systems[1].content, /2026-08-14T10:00:00\.000Z/);
 }
 
 {
@@ -102,7 +115,7 @@ function harness(model) {
 }
 
 {
-  const proposal = { slots: slots(), fields: {}, citations: [] };
+  const proposal = pureAct();
   const model = scripted([
     { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [proposal] } }] },
   ]);
@@ -111,8 +124,24 @@ function harness(model) {
   assert.equal(turn.registrations.length, 1);
   assert.equal("process_id" in h.calls[0][1][0], false);
   assert.deepEqual(h.calls[0][1][0].slots, proposal.slots);
+  assert.deepEqual(h.calls[0][1][0].envelope, {});
   assert.equal(turn.reply, "Registrado · Recibo 00000000 · Apenas registrado; nenhuma ativação foi solicitada.");
   assert.equal(model.requests.length, 1, "a persisted registration must not be reinterpreted by another model turn");
+}
+
+{
+  // Missing envelope is rejected before any registration dependency is invoked.
+  const model = scripted([
+    { tool_calls: [{ id: "f-bad", name: "formalize_acts", arguments: { acts: [{ slots: slots(), fields: {}, citations: [] }] } }] },
+    { tool_calls: [{ id: "f-good", name: "formalize_acts", arguments: { acts: [pureAct()] } }] },
+  ]);
+  const h = harness(model);
+  const turn = await runDreamTurn({ message: "registre o fato", conversation_id: "conv_envelope_required" }, h.deps);
+  assert.deepEqual(turn.tool_trace, [
+    { name: "formalize_acts", ok: false, code: "envelope_required" },
+    { name: "formalize_acts", ok: true },
+  ]);
+  assert.equal(h.registered.length, 1);
 }
 
 {
@@ -128,6 +157,7 @@ function harness(model) {
       status: "registered",
     }),
     fields: { projection_spec: "resumo do Q3" },
+    envelope: { type: HASH, channel: "chat" },
     citations: [HASH],
   };
   const model = scripted([
@@ -139,6 +169,7 @@ function harness(model) {
   await runDreamTurn({ message: "crie o resumo do Q3", conversation_id: "conv_0004" }, h.deps);
   assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
   assert.equal(h.registered.length, 1);
+  assert.deepEqual(h.calls[2][1][0].envelope, processAct.envelope);
 }
 
 {
@@ -147,11 +178,12 @@ function harness(model) {
     contract_hash: HASH,
     slots: slots({ did: "request_projection", this: "Q3" }),
     fields: { projection_spec: "resumo do Q3" },
+    envelope: { type: HASH },
     citations: [HASH],
   };
   const model = scripted([
     { tool_calls: [{ id: "s1", name: "search_processes", arguments: { query: "projeção" } }] },
-    { tool_calls: [{ id: "bad", name: "formalize_acts", arguments: { acts: [{ slots: slots(), fields: {}, citations: [] }] } }] },
+    { tool_calls: [{ id: "bad", name: "formalize_acts", arguments: { acts: [pureAct()] } }] },
     { tool_calls: [{ id: "r1", name: "read_process_contract", arguments: { process_id: "projection-build.v1" } }] },
     { tool_calls: [{ id: "good", name: "formalize_acts", arguments: { acts: [processAct] } }] },
   ]);
@@ -183,8 +215,8 @@ function harness(model) {
 
 {
   const acts = [
-    { slots: slots({ this: "Q3 fechou" }), fields: {}, citations: [] },
-    { slots: slots({ this: "Q4 abriu" }), fields: {}, citations: [] },
+    pureAct({ slots: slots({ this: "Q3 fechou" }) }),
+    pureAct({ slots: slots({ this: "Q4 abriu" }) }),
   ];
   const model = scripted([{ tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts } }] }]);
   const h = harness(model);
@@ -192,4 +224,4 @@ function harness(model) {
   assert.equal(h.registered.length, 2);
 }
 
-console.log("worker dream agent: complete LLM-authored tuple + trusted context behavior ok");
+console.log("worker dream agent: complete LLM-authored tuple + envelope + trusted context behavior ok");
