@@ -16,6 +16,7 @@ import { createEnrollmentOptions, createSignOptions, verifyEnrollment, verifyGra
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { fetchModelCatalog } from "./model-catalog";
 import { migrateReceiptV1 } from "./postgres-migrate";
+import { about as aboutTool, append as appendTool, search as searchTool, UniversalToolError } from "./universal-tools";
 
 export type Env = {
   HYPERDRIVE: Hyperdrive;
@@ -66,7 +67,7 @@ function errorText(error: unknown): string {
 
 function dbFailure(error: unknown) {
   const message = errorText(error);
-  const notMigrated = /process_contracts|runtime_queue|logline_acts/.test(message) && /does not exist|undefined table/i.test(message);
+  const notMigrated = /current_process_types|current_vocabulary|process_contracts|runtime_queue|logline_acts/.test(message) && /does not exist|undefined table|undefined relation/i.test(message);
   return {
     error: notMigrated ? "database schema is not migrated" : "database unavailable",
     code: notMigrated ? "not_migrated" : "database_unavailable",
@@ -101,6 +102,62 @@ app.get("/api/health", async (c) => {
 app.get("/api/vocabulary", (c) => {
   const reasons = Object.entries(CATALOG).map(([code, [template, action, resolved_by]]) => ({ code, template, action, resolved_by }));
   return c.json({ count: reasons.length, reasons });
+});
+
+// Canonical v1.2 universal LLM/runtime surface: KNOW · SEARCH · APPEND.
+app.get("/api/about", async (c) => {
+  try {
+    return c.json(await withClient(c.env, (client) => aboutTool(client)));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.get("/api/search", async (c) => {
+  const query = c.req.query("q") ?? c.req.query("query") ?? "";
+  const requestedLimit = Number(c.req.query("limit") ?? 20);
+  try {
+    return c.json(await withClient(c.env, (client) => searchTool(client, query, requestedLimit)));
+  } catch (error) {
+    return c.json(dbFailure(error), 503);
+  }
+});
+
+app.post("/api/append", async (c) => {
+  const proposal = await c.req.json().catch(() => null);
+  const identity = c.req.header("cf-access-authenticated-user-email")?.trim() || undefined;
+  try {
+    const result = await withClient(c.env, (client) => appendTool(client, proposal, identity ? { identity } : {}));
+    return c.json(result, 201);
+  } catch (error) {
+    if (error instanceof UniversalToolError) {
+      return c.json({ error: error.message, code: error.code }, error.status as 400);
+    }
+    if (error instanceof RegisterActivationError) {
+      const receipt = error.receipt;
+      return c.json({
+        verified: true,
+        registered: true,
+        id: receipt.id,
+        content_hash: receipt.hashes.content_hash,
+        tuple_hash: receipt.hashes.tuple_hash,
+        envelope_hash: "envelope_hash" in receipt.hashes ? receipt.hashes.envelope_hash : null,
+        fingerprint: fingerprint(receipt.id),
+        activated: false,
+        queued: false,
+        error: "registered, but activation is unavailable",
+        code: "runtime_unavailable",
+        detail: error.causeDetail.slice(0, 300),
+      }, 503);
+    }
+    const typed = error as { code?: unknown; status?: unknown; detail?: unknown };
+    if (typeof typed?.code === "string" && typeof typed?.status === "number" && typed.status >= 400 && typed.status <= 599) {
+      return c.json({ error: errorText(error), code: typed.code, ...(typed.detail ? { detail: typed.detail } : {}) }, typed.status as 400);
+    }
+    const detail = errorText(error);
+    if (/forbidden top-level|receipt slot|JCS|unsupported JCS/i.test(detail)) return c.json({ error: detail, code: "bad_request" }, 400);
+    return c.json(dbFailure(error), 503);
+  }
 });
 
 app.get("/api/models", async (c) => {
@@ -299,10 +356,26 @@ app.post("/api/migrate", async (c) => {
       if (genesis) {
         for (const seed of SEED_CONTRACTS) await ensureRegisteredContract(client, seed, genesis);
       }
-      const count = await client.query<{ count: number }>("SELECT count(*)::int AS count FROM public.process_contracts");
-      return { count: count.rows[0]?.count ?? 0, genesis: genesis || null };
+      const count = await client.query<{ legacy_count: number; ledger_count: number; vocabulary_count: number }>(
+        `SELECT
+          (SELECT count(*)::int FROM public.process_contracts) AS legacy_count,
+          (SELECT count(*)::int FROM public.current_process_types) AS ledger_count,
+          (SELECT count(*)::int FROM public.current_vocabulary) AS vocabulary_count`,
+      );
+      return {
+        legacy_count: count.rows[0]?.legacy_count ?? 0,
+        ledger_count: count.rows[0]?.ledger_count ?? 0,
+        vocabulary_count: count.rows[0]?.vocabulary_count ?? 0,
+        genesis: genesis || null,
+      };
     });
-    return c.json({ ok: true, process_contracts: result.count, genesis_authority: result.genesis });
+    return c.json({
+      ok: true,
+      process_types: result.ledger_count,
+      vocabulary_terms: result.vocabulary_count,
+      legacy_process_contracts: result.legacy_count,
+      genesis_authority: result.genesis,
+    });
   } catch (error) {
     return c.json({ ok: false, ...dbFailure(error) }, 500);
   }
@@ -342,7 +415,7 @@ app.post("/api/chat/turn", async (c) => {
     if (/golden_bridge|model_catalog|llm_|fetch failed|network/i.test(detail)) {
       return c.json({ error: detail.slice(0, 300), code: "model_unavailable", action: "Escolha outro modelo disponível na Golden Bridge." }, 502);
     }
-    if (/process_contracts|runtime_queue|logline_acts|connect/i.test(detail)) return c.json(dbFailure(error), 503);
+    if (/current_process_types|current_vocabulary|process_contracts|runtime_queue|logline_acts|connect/i.test(detail)) return c.json(dbFailure(error), 503);
     return c.json({ error: "chat turn failed safely", code: "chat_turn_failed", detail: detail.slice(0, 300) }, 500);
   }
 });
@@ -364,7 +437,7 @@ app.post("/api/process-types", async (c) => {
     const hash = Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, "0")).join("");
     await c.env.PROJECTIONS.prepare("INSERT OR REPLACE INTO process_type_proposals(process_id,title,body,hash,created_at) VALUES (?,?,?,?,?)")
       .bind(body.process_id, body.title, JSON.stringify(draft), hash, new Date().toISOString()).run();
-    return c.json({ ok: true, process_id: body.process_id, hash, draft, note: "Proposta registrada. O tipo so fica executavel depois de entrar em process_contracts." });
+    return c.json({ ok: true, process_id: body.process_id, hash, draft, note: "Proposta registrada. O tipo só vira lei quando um Act defined_process_type entra no ledger." });
   } catch (error) {
     const detail = errorText(error);
     if (/process_type_proposals|no such table/i.test(detail)) {
