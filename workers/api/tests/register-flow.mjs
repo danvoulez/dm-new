@@ -65,6 +65,71 @@ assert.equal(activatedResponse.envelope_hash, activated.receipt.hashes.envelope_
 assert.equal(activatedResponse.tuple_fingerprint, activated.receipt.hashes.tuple_hash.slice(0, 8));
 assert.equal('waiting' in activatedResponse, false);
 
+// A migrated custody process owns consequence derivation. The legacy catalog/evaluator
+// must not reinterpret the opening Act after the new router recognized it.
+const custodyFields = fields({
+  did: 'opened_process',
+  this: 'case:42',
+  status: 'opened',
+  process_type: 'a'.repeat(64),
+  envelope: {},
+});
+delete custodyFields.process_id;
+let legacyCalls = 0;
+const custodyOutcome = await registerFlow(fakeClient, custodyFields, deps({
+  routeProcessReceipt: async () => ({
+    state: {
+      process_instance: 'b'.repeat(64),
+      process_type: 'a'.repeat(64),
+      process_id: 'santo-andre-card.v1',
+      current_node: 'intake',
+      responsible: 'actor:gate',
+      status: 'open',
+    },
+    custody: {
+      queue_id: 'custody:test',
+      process_instance: 'b'.repeat(64),
+      node: 'intake',
+      responsible: 'actor:gate',
+      source_tuple: 'c'.repeat(64),
+      status: 'queued',
+    },
+  }),
+  loadCatalog: async () => { legacyCalls += 1; throw new Error('legacy catalog must not run'); },
+  evaluateReceipt: () => { legacyCalls += 1; throw new Error('legacy evaluator must not run'); },
+  selectReceiver: async () => { legacyCalls += 1; throw new Error('legacy receiver must not run'); },
+}));
+const custodyResponse = registerResponse(custodyOutcome);
+assert.equal(legacyCalls, 0);
+assert.equal(custodyResponse.process_id, 'santo-andre-card.v1');
+assert.equal(custodyResponse.process_instance, 'b'.repeat(64));
+assert.equal(custodyResponse.activated, true);
+assert.equal(custodyResponse.queued, true);
+assert.equal(custodyResponse.custody.responsible, 'actor:gate');
+assert.equal(custodyOutcome.decision.reason, 'process_custody_routed');
+
+// Terminal custody state is still owned by the new engine and must not fall back just
+// because there is no next queue item.
+const closedOutcome = await registerFlow(fakeClient, custodyFields, deps({
+  routeProcessReceipt: async () => ({
+    state: {
+      process_instance: 'b'.repeat(64),
+      process_type: 'a'.repeat(64),
+      process_id: 'santo-andre-card.v1',
+      current_node: null,
+      responsible: null,
+      status: 'closed',
+    },
+    custody: null,
+  }),
+  loadCatalog: async () => { throw new Error('closed custody must not fall back'); },
+}));
+const closedResponse = registerResponse(closedOutcome);
+assert.equal(closedOutcome.decision.reason, 'process_closed');
+assert.equal(closedResponse.activated, false);
+assert.equal(closedResponse.queued, false);
+assert.equal('waiting' in closedResponse, false);
+
 // Semantic incompleteness is consequence behavior after append, not admission law.
 const incompleteFields = fields({ confirmed_by: '' });
 const incompleteReceipt = await mintReceipt(incompleteFields);
@@ -131,4 +196,4 @@ assert.ok(persistedFailure instanceof RegisterActivationError);
 assert.match(persistedFailure.receipt.id, /^[0-9a-f]{64}$/);
 assert.equal(persistedFailure.causeDetail, 'catalog unavailable');
 
-console.log('register flow DoD: proposal -> verify -> append -> consequence, with content + tuple identity');
+console.log('register flow DoD: custody-first consequence, legacy fallback, immutable append');
