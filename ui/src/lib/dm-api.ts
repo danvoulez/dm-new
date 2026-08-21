@@ -33,7 +33,6 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Types shaped by lab/api.py
 export type NowView = {
   needs_you: Pendency[];
   needs_operator: Pendency[];
@@ -89,7 +88,6 @@ export type CaseView = {
   came_from: unknown[];
   produced: Array<{ hash: string; fingerprint: string | null; did: string }>;
 };
-
 
 export type ProcessListItem = {
   hash: string;
@@ -169,7 +167,7 @@ export type ModelCatalog = {
 
 export type ChatRisk = "none" | "approval" | "irreversible";
 export type ChatAction =
-  | { kind: "confirm_register"; summary: string; fields: Record<string, string>; missing: string[]; risk: ChatRisk; register_body: Record<string, unknown> }
+  | { kind: "confirm_append"; summary: string; fields: Record<string, string>; missing: string[]; risk: ChatRisk; append_body: Record<string, unknown> }
   | { kind: "confirm_new_type"; summary: string; contract_draft: ProcessTypeCreate }
   | { kind: "confirm_grant"; summary: string; grant_draft: Record<string, unknown> }
   | { kind: "request_passkey"; summary: string; grant_id: string; sign_options: Record<string, unknown> }
@@ -214,7 +212,7 @@ export const dmApi = {
   revoke: (gid: string, body: { revoked_by: string }) => req<unknown>(`/api/grants/${gid}/revoke`, { method: "POST", body: JSON.stringify(body) }),
   createGrant: (body: Record<string, unknown>) => req<{ registered: boolean; grant_id: string; fingerprint: string | null }>(`/api/grants`, { method: "POST", body: JSON.stringify(body) }),
   advance: (body: Record<string, unknown>) => req<{ ran?: boolean; note?: string }>(`/api/advance`, { method: "POST", body: JSON.stringify(body) }),
-  register: (body: Record<string, unknown>) => req<RegistrationResult>(`/api/register`, { method: "POST", body: JSON.stringify(body) }),
+  append: (body: Record<string, unknown>) => req<RegistrationResult>(`/api/append`, { method: "POST", body: JSON.stringify(body) }),
   chatTurn: (message: string, conversation_id?: string, model?: string) => req<ChatTurnResult>(`/api/chat/turn`, { method: "POST", body: JSON.stringify({ message, ...(conversation_id ? { conversation_id } : {}), ...(model ? { model } : {}) }) }),
   createProcessType: (body: ProcessTypeCreate) => req<{ ok: boolean; process_id: string; note?: string }>(`/api/process-types`, { method: "POST", body: JSON.stringify(body) }),
   models: () => req<ModelCatalog>(`/api/models`),
