@@ -22,6 +22,7 @@ function fields(overrides = {}) {
     if_not: 'stop',
     status: 'registered',
     process_id: 'memory-register.v1',
+    envelope: {},
     ...overrides,
   };
 }
@@ -31,7 +32,7 @@ async function append(_client, value) {
 }
 
 async function verified() {
-  return { ok: true, checks: ['test'], referenced_hashes: [], process_id: 'memory-register.v1' };
+  return { ok: true, checks: ['test'], referenced_hashes: [], referenced_tuple_hashes: [], process_id: 'memory-register.v1' };
 }
 
 function deps(overrides = {}) {
@@ -57,6 +58,11 @@ assert.equal(activatedResponse.registered, true);
 assert.equal(activatedResponse.activated, true);
 assert.equal(activatedResponse.queued, true);
 assert.equal(activatedResponse.process_id, 'memory-register.v1');
+assert.equal(activatedResponse.id, activated.receipt.id);
+assert.equal(activatedResponse.content_hash, activated.receipt.hashes.content_hash);
+assert.equal(activatedResponse.tuple_hash, activated.receipt.hashes.tuple_hash);
+assert.equal(activatedResponse.envelope_hash, activated.receipt.hashes.envelope_hash);
+assert.equal(activatedResponse.tuple_fingerprint, activated.receipt.hashes.tuple_hash.slice(0, 8));
 assert.equal('waiting' in activatedResponse, false);
 
 // Semantic incompleteness is consequence behavior after append, not admission law.
@@ -125,4 +131,4 @@ assert.ok(persistedFailure instanceof RegisterActivationError);
 assert.match(persistedFailure.receipt.id, /^[0-9a-f]{64}$/);
 assert.equal(persistedFailure.causeDetail, 'catalog unavailable');
 
-console.log('register flow DoD: proposal -> verify -> append -> consequence');
+console.log('register flow DoD: proposal -> verify -> append -> consequence, with content + tuple identity');
