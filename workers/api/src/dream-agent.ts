@@ -1,30 +1,45 @@
 import type { FormalizedActProposal, ProcessContractForLLM, ProcessSearchResult } from "./process-tools";
 
-export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado e nunca faça registro puro: busque o tipo de processo com poucas palavras, leia o contrato ativo e só então formalize conforme ele, citando seu hash. Na formalização, envie somente os slots de source llm; não peça identidade antes de registrar e não envie slots de sessão, relógio ou contrato, nem vazios. O Worker os compõe e o evaluator informa qualquer ausência. Se não encontrar processo, diga isso sem simular a consequência. Não invente identidade, autoridade, confirmação ou evidência. Registrar não significa ativar; somente o evaluator determina se a forma satisfez o processo.`;
+export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado: busque o tipo de processo com poucas palavras, leia o contexto do processo ativo e só então formalize, citando seu hash quando houver processo.
+
+Ao formalizar, você é o escriba/digester: componha organicamente a LogLine inteira — who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status — mais AUX. who é o ator do acontecimento, não o modelo por padrão. O backend não preenche, corrige nem melhora campos semânticos; ele apenas verifica alegações objetivamente verificáveis e aceita a proposta inteira ou a rejeita com motivo explícito. Os nove campos são território livre: regras e exemplos do processo são contexto/convenções do projeto, não uma segunda gramática do kernel. Não invente identidade, autoridade, confirmação, evidência ou hashes. Use o contexto verificável fornecido pela borda quando ele for relevante ao ator. Registrar não significa ativar: depois do append, o runtime deriva consequências separadamente.`;
 
 const LOG_LINE_SLOT_PROPERTIES = {
+  who: { type: "string", description: "Ator do acontecimento, não o LLM por default." },
   did: { type: "string" },
   this: { type: "string" },
+  when: { type: "string", description: "Tempo afirmado do ato." },
+  confirmed_by: { type: "string" },
+  if_ok: { type: "string" },
+  if_doubt: { type: "string" },
+  if_not: { type: "string" },
+  status: { type: "string" },
 } as const;
+const LOG_LINE_SLOT_NAMES = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"] as const;
 
 const FORMALIZED_ACT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["slots", "fields", "missing", "citations"],
+  required: ["slots", "fields", "citations"],
   properties: {
-    process_id: { type: "string", description: "Processo explicitamente escolhido após search_processes e read_process_contract. Omitir somente em registro puro." },
+    process_id: { type: "string", description: "Processo explicitamente escolhido após search_processes/read_process_contract. Omitir em registro puro." },
     contract_hash: { type: "string", description: "Hash de 64 caracteres devolvido por read_process_contract. Obrigatório com process_id." },
-    slots: { type: "object", additionalProperties: false, required: ["did", "this"], properties: LOG_LINE_SLOT_PROPERTIES, description: "Apenas did e this vêm do LLM. Os outros sete slots vêm da sessão, relógio ou contrato." },
-    fields: { type: "object", additionalProperties: true, description: "Campos AUX declarados pelo contrato." },
-    missing: { type: "array", items: { type: "string" } },
-    citations: { type: "array", items: { type: "string" }, description: "Inclui contract_hash quando houver processo." },
+    slots: {
+      type: "object",
+      additionalProperties: false,
+      required: LOG_LINE_SLOT_NAMES,
+      properties: LOG_LINE_SLOT_PROPERTIES,
+      description: "LogLine completa composta pelo LLM. O backend nunca fabrica estes valores.",
+    },
+    fields: { type: "object", additionalProperties: true, description: "AUX livre preservado junto da LogLine." },
+    citations: { type: "array", items: { type: "string" }, description: "Hashes explicitamente citados; inclui contract_hash quando houver processo." },
   },
 } as const;
 
 export const DREAM_TOOL_DEFINITIONS = [
-  { name: "search_processes", description: "Primeiro passo obrigatório quando a pessoa pede uma consequência. Busque com poucas palavras que nomeiem o tipo de processo, não com a frase inteira.", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
-  { name: "read_process_contract", description: "Lê as regras e o hash registrado de um processo antes da formalização.", parameters: { type: "object", required: ["process_id"], properties: { process_id: { type: "string" } } } },
-  { name: "formalize_acts", description: "Registra uma ou mais intenções. Envie só did/this em slots; nunca envie identidade, confirmação, instante, continuidades ou status. O Worker preenche essas fontes e registra mesmo se o evaluator depois marcar incompleto. Registro puro, sem process_id, só vale para pedido explícito de guardar um fato sem consequência.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
+  { name: "search_processes", description: "Compatibilidade da Fase 1: busque contexto de tipo de processo quando a pessoa pede consequência.", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
+  { name: "read_process_contract", description: "Lê contexto/convenções e o hash registrado do tipo de processo; não é uma fonte de campos para o backend.", parameters: { type: "object", required: ["process_id"], properties: { process_id: { type: "string" } } } },
+  { name: "formalize_acts", description: "Propõe uma ou mais LogLines completas. Todos os 9 slots são do LLM, além de AUX/citações. O kernel verifica objetivamente antes de append e nunca corrige silenciosamente.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
   { name: "get_case", description: "Consulta um caso existente sem criar LogLine.", parameters: { type: "object", required: ["hash"], properties: { hash: { type: "string" } } } },
   { name: "get_pendencies", description: "Consulta pendências sem criar LogLine.", parameters: { type: "object", properties: {} } },
 ] as const;
@@ -63,6 +78,11 @@ export type DreamTurn = {
   tool_trace: Array<{ name: string; ok: boolean; code?: string }>;
 };
 
+export type DreamTrustedContext = {
+  identity?: string;
+  now?: string;
+};
+
 function registrationReply(registrations: Array<Record<string, unknown>>): string {
   const lines = registrations.map((registration) => {
     const id = String(registration.id ?? "");
@@ -94,12 +114,25 @@ function processError(error: unknown): Record<string, unknown> {
   };
 }
 
+function trustedContextMessage(context: DreamTrustedContext | undefined): DreamMessage | null {
+  if (!context) return null;
+  const identity = String(context.identity ?? "").trim();
+  const now = String(context.now ?? "").trim();
+  if (!identity && !now) return null;
+  return {
+    role: "system",
+    content: `Contexto verificável da borda (use como fato, não como texto a copiar cegamente): session_identity=${identity || "unknown"}; now=${now || "unknown"}.`,
+  };
+}
+
 export async function runDreamTurn(
-  input: { message: string; conversation_id: string; history?: DreamMessage[] },
+  input: { message: string; conversation_id: string; history?: DreamMessage[]; trusted_context?: DreamTrustedContext },
   deps: DreamAgentDeps,
 ): Promise<DreamTurn> {
+  const trusted = trustedContextMessage(input.trusted_context);
   const messages: DreamMessage[] = [
     { role: "system", content: DREAM_SYSTEM_PROMPT },
+    ...(trusted ? [trusted] : []),
     ...(input.history ?? []).filter((item) => item.role !== "system"),
     { role: "user", content: input.message },
   ];
