@@ -114,6 +114,10 @@ function parseNodes(definition: Record<string, unknown>): { start: string; nodes
   return { start, nodes };
 }
 
+/**
+ * Load the exact immutable type version cited by an instance.
+ * Superseded definitions remain valid for instances that already opened on that hash.
+ */
 export async function loadCustodyProcessTypeByHash(client: PgClient, hash: string): Promise<CustodyProcessType | null> {
   if (!HASH.test(hash)) return null;
   const result = await client.query<{
@@ -121,9 +125,10 @@ export async function loadCustodyProcessTypeByHash(client: PgClient, hash: strin
     registered_hash: string;
     definition: Record<string, unknown>;
   }>(
-    `SELECT process_id,registered_hash,definition
-     FROM public.current_process_types
-     WHERE registered_hash=$1 LIMIT 1`,
+    `SELECT act->>'this' AS process_id,content_hash AS registered_hash,act->'definition' AS definition
+     FROM public.logline_acts
+     WHERE content_hash=$1 AND did='defined_process_type'
+     ORDER BY inserted_at,tuple_hash LIMIT 1`,
     [hash],
   );
   const row = result.rows[0];
@@ -138,6 +143,7 @@ export async function loadCustodyProcessTypeByHash(client: PgClient, hash: strin
   };
 }
 
+/** Current discovery by process id. New openings normally arrive here through search. */
 export async function loadCustodyProcessTypeById(client: PgClient, processId: string): Promise<CustodyProcessType | null> {
   const result = await client.query<{
     process_id: string;
@@ -190,7 +196,7 @@ async function processHistory(client: PgClient, instanceHash: string) {
   const result = await client.query<{ content_hash: string; tuple_hash: string; act: Receipt; inserted_at: string }>(
     `SELECT content_hash,tuple_hash,act,inserted_at::text
      FROM public.logline_acts
-     WHERE content_hash=$1 AND did='opened_process'
+     WHERE (content_hash=$1 AND did='opened_process')
         OR act->'envelope'->>'process'=$1
      ORDER BY inserted_at,tuple_hash`,
     [instanceHash],
