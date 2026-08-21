@@ -3,6 +3,7 @@ import { loadContracts } from "./contracts";
 import { appendAct, type PgClient } from "./db";
 import { evaluate } from "./evaluator";
 import { aboutSystem, searchLedger } from "./ledger-registry";
+import { currentCustody } from "./process-inspect";
 import { processCurrentState, routeProcessReceipt } from "./process-machine";
 import { registerFlow, registerResponse } from "./register-flow";
 import { receiverSelect } from "./runtime";
@@ -32,7 +33,13 @@ export async function search(client: PgClient, query: string, limit = 20) {
   const exact = query.trim();
   if (!HASH.test(exact)) return result;
   const processState = await processCurrentState(client, exact);
-  return processState ? { ...result, process_instance: processState } : result;
+  if (!processState) return result;
+  const custody = await currentCustody(client, exact);
+  return {
+    ...result,
+    process_instance: processState,
+    custody,
+  };
 }
 
 /**
