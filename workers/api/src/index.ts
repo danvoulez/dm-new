@@ -2,11 +2,8 @@ import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
 import { CATALOG } from "./vocabulary";
 import { appendAct, withClient } from "./db";
-import { loadContracts } from "./contracts";
-import { evaluate } from "./evaluator";
-import { RegisterActivationError, registerFlow, registerResponse } from "./register-flow";
-import { candidatesView, caseView, executorRunOnce, nowView, pendenciesView, processesView, receiverSelect, resumeGrantSources } from "./runtime";
-import { canGenericRegisterDid } from "./control-plane";
+import { RegisterActivationError } from "./register-flow";
+import { candidatesView, caseView, executorRunOnce, nowView, pendenciesView, processesView, resumeGrantSources } from "./runtime";
 import { runChatTurn } from "./chat";
 import { ProcessToolError, readProcessContract, searchProcesses } from "./process-tools";
 import { ensureRegisteredContract } from "./contract-registration";
@@ -381,7 +378,6 @@ app.post("/api/migrate", async (c) => {
   }
 });
 
-
 app.post("/api/chat/turn", async (c) => {
   const body = await c.req.json().catch(() => null) as { message?: string; conversation_id?: string; model?: string } | null;
   const message = body?.message?.trim() ?? "";
@@ -584,51 +580,8 @@ async function verifySignoffRequest(
 app.post("/api/webauthn/sign/verify", (c) => verifySignoffRequest(c));
 app.post("/api/grants/:gid/signoff", (c) => verifySignoffRequest(c, c.req.param("gid")));
 
-// Control-plane receipts can only be minted by their dedicated, validated endpoints.
-// Otherwise a generic register call could forge authority, authenticator, grant, or signoff state.
-
-app.post("/api/register", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body || typeof body !== "object" || Array.isArray(body)) return c.json({ error: "body must be JSON object", code: "bad_request" }, 400);
-  const raw = body as Record<string, unknown>;
-  const requestedDid = String(raw.did ?? "").trim();
-  if (!canGenericRegisterDid(requestedDid)) {
-    return c.json({ error: `did ${requestedDid} is reserved for a validated server-side flow`, code: "reserved_did" }, 403);
-  }
-  const fields = Object.fromEntries(Object.entries(raw).filter(([key]) => !["id", "hashes", "receipt_version", "json_canonicalization"].includes(key)));
-  for (const slot of ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"]) {
-    if (!(slot in fields)) fields[slot] = "";
-  }
-  if (!String(fields.when ?? "")) fields.when = new Date().toISOString();
-  if (!String(fields.who ?? "").trim()) return c.json({ error: "who is required", code: "bad_request" }, 400);
-
-  try {
-    return await withClient(c.env, async (client) => {
-      try {
-        const outcome = await registerFlow(client, fields, { append: appendAct, loadCatalog: loadContracts, evaluateReceipt: evaluate, selectReceiver: receiverSelect });
-        return c.json(registerResponse(outcome));
-      } catch (runtimeError) {
-        if (runtimeError instanceof RegisterActivationError) {
-          return c.json({
-            registered: true,
-            id: runtimeError.receipt.id,
-            fingerprint: fingerprint(runtimeError.receipt.id),
-            activated: false,
-            queued: false,
-            error: "registered, but activation is unavailable",
-            code: "runtime_unavailable",
-            detail: runtimeError.causeDetail.slice(0, 300),
-          }, 503);
-        }
-        throw runtimeError;
-      }
-    });
-  } catch (error) {
-    const message = errorText(error);
-    if (/forbidden top-level|receipt slot|JCS|unsupported JCS/i.test(message)) return c.json({ error: message, code: "bad_request" }, 400);
-    return c.json(dbFailure(error), 503);
-  }
-});
+// Semantic Acts enter only through /api/append. Control-plane receipts keep dedicated,
+// validated endpoints so authority, authenticator, grant, and signoff state cannot be forged.
 
 app.post("/api/advance", async (c) => {
   const body = await c.req.json().catch(() => ({})) as { worker?: string };
