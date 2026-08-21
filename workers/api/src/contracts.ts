@@ -1,4 +1,5 @@
 import type { PgClient } from "./db";
+import { loadLedgerProcessTypes } from "./ledger-registry";
 
 export type Slot = "who" | "did" | "this" | "when" | "confirmed_by" | "if_ok" | "if_doubt" | "if_not" | "status";
 export type SlotSource = "llm" | "session" | "clock" | "contract" | "evidence";
@@ -143,7 +144,7 @@ export function toProcessTypeView(contract: ProcessContract): ProcessTypeView {
   };
 }
 
-export async function loadContracts(client: PgClient): Promise<Map<string, ProcessContract>> {
+async function loadLegacyContractCache(client: PgClient): Promise<Map<string, ProcessContract>> {
   const result = await client.query<{ process_id: string; title: string; status: string; registered_hash: string | null; contract: ProcessContract }>(
     "SELECT process_id,title,status,registered_hash,contract FROM public.process_contracts ORDER BY process_id",
   );
@@ -157,4 +158,19 @@ export async function loadContracts(client: PgClient): Promise<Map<string, Proce
     };
     return [row.process_id, contract];
   }));
+}
+
+/**
+ * Runtime discovery is ledger-first. The mutable table is only a bootstrap/import fallback
+ * for installations that have not yet emitted canonical `defined_process_type` Acts.
+ */
+export async function loadContracts(client: PgClient): Promise<Map<string, ProcessContract>> {
+  try {
+    const ledger = await loadLedgerProcessTypes(client);
+    if (ledger.size) return ledger;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    if (!/current_process_types|does not exist|undefined table/i.test(detail)) throw error;
+  }
+  return loadLegacyContractCache(client);
 }
