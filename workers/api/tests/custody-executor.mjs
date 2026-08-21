@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { claimCustody, CustodyExecutionError, custodyExecutorRunOnce } from "../src/custody-executor.ts";
+import { RegisterActivationError } from "../src/register-flow.ts";
 import { executorRunOnce } from "../src/runtime.ts";
 import { mintReceipt } from "../src/receipt.ts";
 
@@ -140,7 +141,7 @@ const source = await mintReceipt({
         claims += 1;
         return claims === 1 ? { rows: [queue()], rowCount: 1 } : { rows: [], rowCount: 0 };
       }
-      if (/stale_custody_projection|last_error=\$2/i.test(sql)) {
+      if (/last_error=\$2/i.test(sql)) {
         staleClosed = true;
         return { rows: [], rowCount: 1 };
       }
@@ -227,6 +228,48 @@ const source = await mintReceipt({
   assert.equal(appendCalls, 0);
 }
 
+// If append persisted but post-append routing failed, close the claim with that tuple so
+// an expired lease cannot re-run an already-recorded effect.
+{
+  const resultProposal = {
+    who: "runtime.executor",
+    did: "recorded_receipt_activity",
+    this: SOURCE_TUPLE,
+    when: "2026-08-21T17:32:00.000Z",
+    confirmed_by: "worker:test",
+    if_ok: "continue",
+    if_doubt: "review",
+    if_not: "stop",
+    status: "ok",
+    envelope: { process: INSTANCE, parent: SOURCE_TUPLE },
+  };
+  const persisted = await mintReceipt(resultProposal);
+  const calls = [];
+  const client = {
+    async query(sql, params = []) {
+      calls.push({ sql, params });
+      if (/WITH next AS/i.test(sql)) return { rows: [queue()], rowCount: 1 };
+      if (/result_tuple=\$2/i.test(sql)) return { rows: [], rowCount: 1 };
+      throw new Error(`unexpected SQL: ${sql}`);
+    },
+  };
+  await assert.rejects(
+    custodyExecutorRunOnce(client, "runtime.executor", "worker:test", 60, {
+      project: async () => state(),
+      sourceByTuple: async () => source,
+      loadType: async () => processType("receipt"),
+      appendProposal: async () => {
+        throw new RegisterActivationError(persisted, new Error("route unavailable after append"));
+      },
+    }),
+    (error) => error instanceof RegisterActivationError && error.receipt.id === persisted.id,
+  );
+  const closed = calls.find(({ sql }) => /result_tuple=\$2/i.test(sql));
+  assert.ok(closed, "persisted result must close the runtime claim");
+  assert.deepEqual(closed.params, ["custody:test", persisted.hashes.tuple_hash]);
+  assert.equal(calls.some(({ sql }) => /SET last_error=\$2/i.test(sql)), false);
+}
+
 // Production runner drains custody first and reaches legacy runtime_queue only when none exists.
 {
   const calls = [];
@@ -243,4 +286,4 @@ const source = await mintReceipt({
   assert.match(calls[1].sql, /public\.runtime_queue/i);
 }
 
-console.log("custody executor: leases, exact tuple, safety, adapter ownership, and legacy fallback pinned");
+console.log("custody executor: leases, exact tuple, safety, adapter ownership, replay safety, and legacy fallback pinned");
