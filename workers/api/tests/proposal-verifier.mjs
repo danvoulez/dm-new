@@ -72,10 +72,12 @@ assert.ok(cited.checks.includes("referenced_content_hashes_exist"));
 assert.ok(cited.checks.includes("process_type_exists"));
 assert.ok(cited.checks.includes("contract_hash_current"));
 
-// Envelope domains are not interchangeable: process is content identity, parent is occurrence identity.
+// Generic content provenance uses citations; exact occurrence ancestry uses parent.
+// envelope.process is now reserved for actual process instance identity.
 const contextual = await verifyProposal(client(), {
   ...tuple(),
-  envelope: { process: KNOWN_HASH, parent: KNOWN_TUPLE, channel: "chat" },
+  citations: [KNOWN_HASH],
+  envelope: { parent: KNOWN_TUPLE, channel: "chat" },
 });
 assert.deepEqual(contextual.referenced_hashes, [KNOWN_HASH]);
 assert.deepEqual(contextual.referenced_tuple_hashes, [KNOWN_TUPLE]);
@@ -143,4 +145,4 @@ await assert.rejects(
   (error) => error instanceof ProposalVerificationError && error.code === "slot_missing" && error.detail.slot === "if_doubt",
 );
 
-console.log("proposal verifier: ledger process type + objective content/tuple domains pinned");
+console.log("proposal verifier: generic provenance + process-instance envelope domains pinned");
