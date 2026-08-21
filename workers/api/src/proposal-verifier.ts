@@ -66,12 +66,14 @@ async function requireHashes(client: PgClient, refs: string[]): Promise<void> {
   if (missing.length) fail("hash_not_found", "one or more cited hashes do not exist", { missing });
 }
 
-async function requireProcessType(client: PgClient, processId: string): Promise<void> {
-  const result = await client.query<{ process_id: string }>(
-    "SELECT process_id FROM public.process_contracts WHERE process_id=$1 LIMIT 1",
+async function requireProcessType(client: PgClient, processId: string): Promise<string | null> {
+  const result = await client.query<{ process_id: string; registered_hash: string | null }>(
+    "SELECT process_id, registered_hash FROM public.process_contracts WHERE process_id=$1 LIMIT 1",
     [processId],
   );
-  if (!result.rows[0]) fail("process_type_not_found", `process type does not exist: ${processId}`, { process_id: processId });
+  const row = result.rows[0];
+  if (!row) fail("process_type_not_found", `process type does not exist: ${processId}`, { process_id: processId });
+  return row.registered_hash ?? null;
 }
 
 /**
@@ -121,8 +123,20 @@ export async function verifyProposal(
 
   const processId = typeof fields.process_id === "string" ? fields.process_id.trim() : "";
   if (processId) {
-    await requireProcessType(client, processId);
+    const registeredHash = await requireProcessType(client, processId);
     checks.push("process_type_exists");
+
+    const suppliedContractHash = typeof fields.contract_hash === "string" ? fields.contract_hash.trim() : "";
+    if (suppliedContractHash) {
+      if (suppliedContractHash !== registeredHash) {
+        fail("contract_hash_mismatch", "contract_hash is not the registered hash for the proposed process type", {
+          process_id: processId,
+          expected: registeredHash,
+          observed: suppliedContractHash,
+        });
+      }
+      checks.push("contract_hash_current");
+    }
   }
 
   return {
