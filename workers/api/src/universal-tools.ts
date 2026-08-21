@@ -34,7 +34,14 @@ export async function search(client: PgClient, query: string, limit = 20) {
   if (!HASH.test(exact)) return result;
   const processState = await processCurrentState(client, exact);
   if (!processState) return result;
-  const custody = await currentCustody(client, exact);
+  const candidate = await currentCustody(client, exact);
+  const custody = candidate
+    && processState.status === "open"
+    && candidate.node === processState.current_node
+    && candidate.responsible === processState.responsible
+    && candidate.source_tuple === processState.current_tuple
+    ? candidate
+    : null;
   return {
     ...result,
     process_instance: processState,
