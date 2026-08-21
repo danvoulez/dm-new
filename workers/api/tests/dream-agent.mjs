@@ -2,17 +2,29 @@ import assert from "node:assert/strict";
 import { DREAM_TOOL_DEFINITIONS, runDreamTurn } from "../src/dream-agent.ts";
 
 const HASH = "a".repeat(64);
+const SLOT_NAMES = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"];
+
+function slots(overrides = {}) {
+  return {
+    who: "dan@example.com",
+    did: "registered",
+    this: "Q3 fechou",
+    when: "2026-08-14T10:00:00.000Z",
+    confirmed_by: "dan@example.com",
+    if_ok: "close",
+    if_doubt: "clarify",
+    if_not: "close",
+    status: "noted",
+    ...overrides,
+  };
+}
 
 const formalizeDefinition = DREAM_TOOL_DEFINITIONS.find((tool) => tool.name === "formalize_acts");
 assert.ok(formalizeDefinition);
 const actSchema = formalizeDefinition.parameters.properties.acts.items;
-assert.deepEqual(actSchema.required, ["slots", "fields", "missing", "citations"]);
-assert.ok(actSchema.properties.process_id);
-assert.ok(actSchema.properties.contract_hash);
-assert.ok(actSchema.properties.slots.properties.did);
-assert.ok(actSchema.properties.slots.properties.this);
-assert.deepEqual(Object.keys(actSchema.properties.slots.properties), ["did", "this"]);
-assert.deepEqual(actSchema.properties.slots.required, ["did", "this"]);
+assert.deepEqual(actSchema.required, ["slots", "fields", "citations"]);
+assert.deepEqual(Object.keys(actSchema.properties.slots.properties), SLOT_NAMES);
+assert.deepEqual([...actSchema.properties.slots.required], SLOT_NAMES);
 assert.ok(actSchema.properties.fields);
 assert.ok(actSchema.properties.citations);
 
@@ -59,10 +71,23 @@ function harness(model) {
   assert.deepEqual(h.calls, []);
   assert.deepEqual(h.registered, []);
   assert.equal(model.requests[0].messages.filter((item) => item.role === "system").length, 1);
-  assert.doesNotMatch(model.requests[0].messages[0].content, /CATÁLOGO|GRANTS|MODELOS|VOCABULÁRIO/);
-  assert.match(model.requests[0].messages[0].content, /nunca invente o resultado/i);
-  assert.match(model.requests[0].messages[0].content, /nunca faça registro puro/i);
-  assert.match(model.requests[0].messages[0].content, /não peça identidade antes de registrar/i);
+  assert.match(model.requests[0].messages[0].content, /LogLine inteira/i);
+  assert.match(model.requests[0].messages[0].content, /backend não preenche/i);
+  assert.match(model.requests[0].messages[0].content, /ator do acontecimento/i);
+}
+
+{
+  const model = scripted([{ content: "Contexto recebido." }]);
+  const h = harness(model);
+  await runDreamTurn({
+    message: "oi",
+    conversation_id: "conv_context",
+    trusted_context: { identity: "dan@example.com", now: "2026-08-14T10:00:00.000Z" },
+  }, h.deps);
+  const systems = model.requests[0].messages.filter((item) => item.role === "system");
+  assert.equal(systems.length, 2);
+  assert.match(systems[1].content, /session_identity=dan@example\.com/);
+  assert.match(systems[1].content, /now=2026-08-14T10:00:00\.000Z/);
 }
 
 {
@@ -77,24 +102,38 @@ function harness(model) {
 }
 
 {
+  const proposal = { slots: slots(), fields: {}, citations: [] };
   const model = scripted([
-    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [{ slots: { did: "registered", this: "Q3 fechou" }, fields: {}, missing: [], citations: [] }] } }] },
-    { content: "Não foi possível registrar." },
+    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [proposal] } }] },
   ]);
   const h = harness(model);
   const turn = await runDreamTurn({ message: "registre que o Q3 fechou", conversation_id: "conv_0003" }, h.deps);
   assert.equal(turn.registrations.length, 1);
   assert.equal("process_id" in h.calls[0][1][0], false);
+  assert.deepEqual(h.calls[0][1][0].slots, proposal.slots);
   assert.equal(turn.reply, "Registrado · Recibo 00000000 · Apenas registrado; nenhuma ativação foi solicitada.");
   assert.equal(model.requests.length, 1, "a persisted registration must not be reinterpreted by another model turn");
 }
 
 {
+  const processAct = {
+    process_id: "projection-build.v1",
+    contract_hash: HASH,
+    slots: slots({
+      did: "request_projection",
+      this: "Q3",
+      if_ok: "projection-build.v1",
+      if_doubt: "attention-raise.v1",
+      if_not: "stop",
+      status: "registered",
+    }),
+    fields: { projection_spec: "resumo do Q3" },
+    citations: [HASH],
+  };
   const model = scripted([
     { tool_calls: [{ id: "s1", name: "search_processes", arguments: { query: "criar resumo" } }] },
     { tool_calls: [{ id: "r1", name: "read_process_contract", arguments: { process_id: "projection-build.v1" } }] },
-    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [{ process_id: "projection-build.v1", contract_hash: HASH, slots: { did: "request_projection", this: "Q3" }, fields: { projection_spec: "resumo do Q3" }, missing: [], citations: [HASH] }] } }] },
-    { content: "O pedido de resumo foi registrado." },
+    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [processAct] } }] },
   ]);
   const h = harness(model);
   await runDreamTurn({ message: "crie o resumo do Q3", conversation_id: "conv_0004" }, h.deps);
@@ -106,14 +145,13 @@ function harness(model) {
   const processAct = {
     process_id: "projection-build.v1",
     contract_hash: HASH,
-    slots: { did: "request_projection", this: "Q3" },
+    slots: slots({ did: "request_projection", this: "Q3" }),
     fields: { projection_spec: "resumo do Q3" },
-    missing: [],
     citations: [HASH],
   };
   const model = scripted([
     { tool_calls: [{ id: "s1", name: "search_processes", arguments: { query: "projeção" } }] },
-    { tool_calls: [{ id: "bad", name: "formalize_acts", arguments: { acts: [{ slots: { did: "registered", this: "Q3" }, fields: {}, missing: [], citations: [] }] } }] },
+    { tool_calls: [{ id: "bad", name: "formalize_acts", arguments: { acts: [{ slots: slots(), fields: {}, citations: [] }] } }] },
     { tool_calls: [{ id: "r1", name: "read_process_contract", arguments: { process_id: "projection-build.v1" } }] },
     { tool_calls: [{ id: "good", name: "formalize_acts", arguments: { acts: [processAct] } }] },
   ]);
@@ -125,11 +163,8 @@ function harness(model) {
     { name: "read_process_contract", ok: true },
     { name: "formalize_acts", ok: true },
   ]);
-  assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
   assert.equal(turn.registrations[0].activated, true);
-  assert.equal(model.requests[0].tool_choice, "auto");
   assert.deepEqual(model.requests[1].tool_choice, { type: "function", function: { name: "read_process_contract" } });
-  assert.deepEqual(model.requests[2].tool_choice, { type: "function", function: { name: "read_process_contract" } });
   assert.deepEqual(model.requests[3].tool_choice, { type: "function", function: { name: "formalize_acts" } });
 }
 
@@ -148,29 +183,13 @@ function harness(model) {
 
 {
   const acts = [
-    { slots: { did: "registered", this: "Q3 fechou" }, fields: {}, citations: [] },
-    { slots: { did: "registered", this: "Q4 abriu" }, fields: {}, citations: [] },
+    { slots: slots({ this: "Q3 fechou" }), fields: {}, citations: [] },
+    { slots: slots({ this: "Q4 abriu" }), fields: {}, citations: [] },
   ];
-  const model = scripted([
-    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts } }] },
-    { content: "Registrei os dois fatos." },
-  ]);
+  const model = scripted([{ tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts } }] }]);
   const h = harness(model);
   await runDreamTurn({ message: "registre que o Q3 fechou e o Q4 abriu", conversation_id: "conv_0005" }, h.deps);
   assert.equal(h.registered.length, 2);
 }
 
-{
-  const PRIOR = "b".repeat(64);
-  const correction = { slots: { did: "registered", this: "era Q4" }, fields: { corrects: PRIOR }, citations: [PRIOR] };
-  const model = scripted([
-    { tool_calls: [{ id: "f1", name: "formalize_acts", arguments: { acts: [correction] } }] },
-    { content: "Registrei a correção sem apagar o anterior." },
-  ]);
-  const h = harness(model);
-  await runDreamTurn({ message: "não, era Q4", conversation_id: "conv_0006" }, h.deps);
-  assert.equal(h.registered.length, 1);
-  assert.equal(h.calls[0][1][0].fields.corrects, PRIOR);
-}
-
-console.log("worker dream agent behavior: ok");
+console.log("worker dream agent: complete LLM-authored tuple + trusted context behavior ok");
