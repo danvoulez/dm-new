@@ -36,7 +36,7 @@ function client({
         const requested = params[0] ?? [];
         return { rows: requested.filter((hash) => hashes.includes(hash)).map((content_hash) => ({ content_hash })) };
       }
-      if (sql.includes("public.process_contracts")) {
+      if (sql.includes("public.current_process_types") || sql.includes("public.process_contracts")) {
         const processId = params[0];
         return Object.hasOwn(processes, processId)
           ? { rows: [{ process_id: processId, registered_hash: processes[processId] }] }
@@ -58,7 +58,7 @@ assert.ok(ugly.checks.includes("tuple_shape"));
 assert.ok(ugly.checks.includes("session_identity"));
 assert.equal(ugly.process_id, null);
 
-// AUX/content references and process contract binding remain objective checks.
+// AUX/content references and process type binding remain objective checks, now ledger-first.
 const cited = await verifyProposal(client(), {
   ...tuple(),
   citations: [KNOWN_HASH],
@@ -116,7 +116,7 @@ await assert.rejects(
   (error) => error instanceof ProposalVerificationError && error.code === "process_type_not_found",
 );
 
-// An existing hash cannot be cited as the process contract if it is not the registered hash of that type.
+// An existing hash cannot be cited as the process type hash if it is not the ledger projection's hash.
 await assert.rejects(
   () => verifyProposal(client(), {
     ...tuple(),
@@ -143,4 +143,4 @@ await assert.rejects(
   (error) => error instanceof ProposalVerificationError && error.code === "slot_missing" && error.detail.slot === "if_doubt",
 );
 
-console.log("proposal verifier: objective content/tuple domains pinned; semantic ugliness remains admissible");
+console.log("proposal verifier: ledger process type + objective content/tuple domains pinned");
