@@ -4,7 +4,7 @@
 -- compatibility only; runtime discovery reads these pure projections.
 
 create or replace view public.current_process_types as
-with ranked as (
+with definitions as (
   select
     content_hash as registered_hash,
     tuple_hash,
@@ -13,22 +13,33 @@ with ranked as (
     act->>'when' as defined_when,
     act->>'status' as status,
     act->'definition' as definition,
+    act->>'supersedes' as supersedes,
     act->>'source_yml' as source_yml,
-    inserted_at,
-    row_number() over (
-      partition by act->>'this'
-      order by inserted_at desc, tuple_hash desc
-    ) as rn
+    inserted_at
   from public.logline_acts
   where did = 'defined_process_type'
     and coalesce(act->>'this','') <> ''
     and jsonb_typeof(act->'definition') = 'object'
+), unsuperseded as (
+  select d.*
+  from definitions d
+  where not exists (
+    select 1 from definitions newer
+    where newer.supersedes = d.registered_hash
+  )
+), ranked as (
+  select *, row_number() over (
+    partition by process_id
+    order by inserted_at desc, tuple_hash desc
+  ) as rn
+  from unsuperseded
 )
 select
   process_id,
   registered_hash,
   tuple_hash,
   definition,
+  supersedes,
   status,
   defined_by,
   defined_when,
@@ -77,6 +88,6 @@ from ranked
 where rn = 1;
 
 comment on view public.current_process_types is
-  'Pure projection of latest defined_process_type Act per immutable process_id.';
+  'Pure projection of unsuperseded defined_process_type Acts; old hashes remain in the ledger.';
 comment on view public.current_vocabulary is
   'Pure projection of latest defined_vocabulary_term Act per domain/term.';
