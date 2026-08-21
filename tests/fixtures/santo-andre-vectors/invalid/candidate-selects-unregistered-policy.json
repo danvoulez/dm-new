@@ -5,13 +5,8 @@
     "law 14"
   ],
   "reason": "A candidate may PROPOSE a policy, but the gate refuses a policy hash that resolves to no registered policy. A proposed judge that does not exist is illegal, not merely doubtful.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

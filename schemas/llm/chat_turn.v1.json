@@ -11,13 +11,13 @@
     "action": {
       "oneOf": [
         {
-          "type": "object", "required": ["kind", "summary", "fields", "missing", "risk", "register_body"], "additionalProperties": false,
+          "type": "object", "required": ["kind", "summary", "fields", "missing", "risk", "append_body"], "additionalProperties": false,
           "properties": {
-            "kind": {"const": "confirm_register"}, "summary": {"type": "string"},
+            "kind": {"const": "confirm_append"}, "summary": {"type": "string"},
             "fields": {"type": "object", "additionalProperties": {"type": "string"}},
             "missing": {"type": "array", "items": {"type": "string"}},
             "risk": {"enum": ["none", "approval", "irreversible"]},
-            "register_body": {"type": "object"}
+            "append_body": {"type": "object"}
           }
         },
         {

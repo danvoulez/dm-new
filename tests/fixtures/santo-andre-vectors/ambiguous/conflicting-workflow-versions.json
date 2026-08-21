@@ -5,14 +5,9 @@
     "law 15",
     "law 18"
   ],
-  "reason": "The Act and its route imply two different workflow versions; deterministic routing is impossible. Open a ghost rather than guess the road.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "reason": "The Act and its route imply two different workflow versions; deterministic custody routing is impossible. Open a ghost rather than guess the process graph.",
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

@@ -6,7 +6,7 @@ import Novo from "./Novo";
 vi.mock("@/lib/dm-api", () => ({
   dmApi: {
     processTypes: () => Promise.resolve({ count: 1, types: [{ process_id: "memory-register.v1", title: "Memória", requires: [], accepts: ["descricao"], required_slots: ["who","did","this"], evidence_must_include: [], runnable: true, danger_tier: "L0", needs_approval: false, irreversible: false, readiness: "runnable", readiness_reason: "" }] }),
-    register: () => Promise.resolve({ registered: true, id: "b".repeat(64), fingerprint: "b".repeat(8), activated: true }),
+    append: () => Promise.resolve({ registered: true, id: "b".repeat(64), fingerprint: "b".repeat(8), activated: true }),
   },
 }));
 
@@ -16,7 +16,7 @@ function renderNovo() {
 }
 
 describe("Novo", () => {
-  it("renders contract-driven form and registers", async () => {
+  it("renders contract-driven form and appends", async () => {
     renderNovo();
     await waitFor(()=> expect(screen.getByText(/Novo registro/)).toBeInTheDocument());
     const input = screen.getByPlaceholderText("O que é (this)");

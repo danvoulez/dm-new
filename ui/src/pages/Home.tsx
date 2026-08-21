@@ -50,8 +50,8 @@ export default function Home() {
     },
   });
 
-  const register = useMutation({
-    mutationFn: (body: Record<string, unknown>) => dmApi.register(body),
+  const append = useMutation({
+    mutationFn: (body: Record<string, unknown>) => dmApi.append(body),
     onSuccess: (result) => {
       setAction(undefined);
       setMessages((items) => [...items, { id: uid(), role: "system", text: registrationMessage(result), caseHash: result.id }]);
@@ -92,7 +92,7 @@ export default function Home() {
     onError: (error) => setMessages((items) => [...items, { id: uid(), role: "system", text: `A assinatura não foi concluída: ${(error as Error).message}` }]),
   });
 
-  const busy = chat.isPending || register.isPending || createType.isPending || createGrant.isPending || signGrant.isPending;
+  const busy = chat.isPending || append.isPending || createType.isPending || createGrant.isPending || signGrant.isPending;
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
@@ -120,9 +120,9 @@ export default function Home() {
 
   const confirmAction = () => {
     if (!action || busy) return;
-    if (action.kind === "confirm_register") {
+    if (action.kind === "confirm_append") {
       if (action.missing.length) return;
-      register.mutate(action.register_body);
+      append.mutate(action.append_body);
     } else if (action.kind === "confirm_new_type") createType.mutate(action);
     else if (action.kind === "confirm_grant") createGrant.mutate(action);
     else if (action.kind === "request_passkey") signGrant.mutate(action);

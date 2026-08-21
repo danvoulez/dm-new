@@ -5,13 +5,8 @@
     "law 12"
   ],
   "reason": "A run hash on a request Act implies mutation. run=hash is valid only on a result Act that cites its request; a request must carry run=0.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

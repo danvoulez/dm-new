@@ -36,7 +36,7 @@ function PendencyCard({ item, onResolve }: { item: Pendency; onResolve: (item: P
         <summary className="cursor-pointer">⋯ detalhes</summary>
         <dl className="mt-2 grid gap-1 font-mono">
           <div><dt className="inline">código: </dt><dd className="inline">{item.code}</dd></div>
-          <div><dt className="inline">recibo: </dt><dd className="inline break-all">{item.id}</dd></div>
+          <div><dt className="inline">processo: </dt><dd className="inline break-all">{item.id}</dd></div>
           {item.process_id ? <div><dt className="inline">process_id: </dt><dd className="inline">{item.process_id}</dd></div> : null}
           {item.danger_tier ? <div><dt className="inline">tier: </dt><dd className="inline">{item.danger_tier}</dd></div> : null}
         </dl>
@@ -62,9 +62,9 @@ function ResolveSheet({ pendency, open, onOpenChange }: { pendency: Pendency | n
   const askAgent = useMutation({
     mutationFn: async () => {
       if (!pendency) throw new Error("Pendência indisponível.");
-      const text = answer.trim();
-      if (!text) throw new Error("Escreva a informação que falta.");
-      return dmApi.chatTurn(`Quero resolver a pendência associada ao processo ${pendency.source_hash}. Minha resposta é: ${text}`, conversationId);
+      const value = answer.trim();
+      if (!value) throw new Error("Escreva a informação que falta.");
+      return dmApi.chatTurn(`Quero resolver a pendência associada ao processo ${pendency.source_hash}. Minha resposta é: ${value}`, conversationId);
     },
     onSuccess: (turn) => {
       setConversationId(turn.conversation_id);
@@ -94,16 +94,16 @@ function ResolveSheet({ pendency, open, onOpenChange }: { pendency: Pendency | n
   const confirm = useMutation({
     mutationFn: async () => {
       if (!action) throw new Error("Não há ação para confirmar.");
-      if (action.kind === "confirm_register") {
+      if (action.kind === "confirm_append") {
         if (action.missing.length) throw new Error("Ainda faltam informações. Responda em texto acima.");
-        return dmApi.register(action.register_body);
+        return dmApi.append(action.append_body);
       }
       if (action.kind === "confirm_new_type") return dmApi.createProcessType(action.contract_draft);
       if (action.kind === "confirm_grant") return dmApi.createGrant(action.grant_draft);
       if (action.kind === "request_passkey") return sign.mutateAsync(action);
       throw new Error("Esta ação não precisa de confirmação.");
     },
-    onSuccess: () => { setAction(undefined); setResult("Resolvido. O novo registro foi acrescentado sem reescrever o anterior."); refresh(); },
+    onSuccess: () => { setAction(undefined); setResult("Resolvido. O novo Act foi acrescentado sem reescrever o anterior."); refresh(); },
     onError: (error) => setResult((error as Error).message),
   });
 
@@ -131,7 +131,7 @@ function ResolveSheet({ pendency, open, onOpenChange }: { pendency: Pendency | n
         {action ? <ActionCard action={action} busy={busy} onConfirm={() => confirm.mutate()} onAlternative={() => { setAction(undefined); setReply(undefined); }} /> : null}
         {result ? <p className="mt-4 rounded-2xl border bg-card p-4 text-[12px] leading-5">{result}</p> : null}
 
-        <p className="mt-5 text-[11px] leading-4 text-muted-foreground">Correções entram como novos registros. O histórico anterior permanece intacto.</p>
+        <p className="mt-5 text-[11px] leading-4 text-muted-foreground">Correções entram como novos Acts. O histórico anterior permanece intacto.</p>
       </SheetContent>
     </Sheet>
   );
@@ -149,7 +149,7 @@ export default function Pendentes() {
     <div className="flex-1 overflow-y-auto bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 pb-5 pl-20 pr-6 pt-5 backdrop-blur md:px-8">
         <h1 className="text-2xl font-semibold tracking-[-0.03em]">Pendências</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">O que está esperando uma pessoa antes de poder continuar.</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">Trabalho atual derivado da custódia do processo.</p>
         <div className="mt-4 flex gap-2">
           {FILTERS.map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full px-3 py-1.5 text-[12px] font-medium ${filter === item ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}>{item}</button>)}
         </div>

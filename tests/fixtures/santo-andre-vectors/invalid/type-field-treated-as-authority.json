@@ -4,14 +4,9 @@
   "tests": [
     "law 8"
   ],
-  "reason": "An inert 'type' in free AUX is allowed, but kind must DERIVE from template/workflow/policy/qualifier/runtime/run/sent_to. Here the Act is a 'card' only by its type field (no card template/workflow); treating type as authority is refused.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "reason": "An inert 'type' in free AUX is allowed, but kind must DERIVE from template/workflow/policy/qualifier/runtime/run plus current responsible custody. Here the Act is a 'card' only by its type field (no card template/workflow); treating type as authority is refused.",
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

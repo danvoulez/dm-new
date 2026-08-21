@@ -27,25 +27,35 @@ export default function Novo() {
   const runnable = types.filter(t => t.runnable);
   const selected = types.find(t => t.process_id === processId);
 
-  const register = useMutation({
+  const append = useMutation({
     mutationFn: () => {
-      const body: Record<string, unknown> = { who, did: fields.did || "note", this: fields.this || "novo registro", status: fields.status || "open", when: new Date().toISOString(), if_ok: fields.if_ok || "", if_doubt: fields.if_doubt || "", if_not: fields.if_not || "", confirmed_by: fields.confirmed_by || "" };
+      const body: Record<string, unknown> = {
+        who,
+        did: fields.did || "note",
+        this: fields.this || "novo registro",
+        status: fields.status || "open",
+        when: fields.when || new Date().toISOString(),
+        if_ok: fields.if_ok || "",
+        if_doubt: fields.if_doubt || "",
+        if_not: fields.if_not || "",
+        confirmed_by: fields.confirmed_by || "",
+        envelope: {},
+      };
       if (processId) body.process_id = processId;
-      // contract-driven aux fields
       for (const k of [...(selected?.requires ?? []), ...(selected?.accepts ?? [])]) {
         if (fields[k] !== undefined && fields[k] !== "") body[k] = fields[k];
       }
-      // also pass any extra descricao etc as aux
       if (fields.descricao) body.descricao = fields.descricao;
-      return dmApi.register(body);
+      return dmApi.append(body);
     },
     onSuccess: (d) => {
-      const finger = (d as { fingerprint?: string | null }).fingerprint;
-      const id = (d as { id?: string }).id;
-      const activated = (d as { activated?: boolean }).activated;
-      const waiting = (d as { waiting?: { message?: string } }).waiting;
+      const finger = d.fingerprint;
+      const id = d.id;
+      const activated = d.activated;
+      const waiting = d.waiting;
       qc.invalidateQueries({ queryKey: ["now"] });
       qc.invalidateQueries({ queryKey: ["pendencies"] });
+      qc.invalidateQueries({ queryKey: ["processes"] });
       if (activated) {
         setResult({ msg: `Registrado · Recibo ${finger ?? id?.slice(0,8) ?? "ok"} · já está avançando`, ok: true, fingerprint: finger ?? undefined });
         if (finger) setTimeout(()=> setLocation(`/casos/${finger}`), 600);
@@ -65,13 +75,13 @@ export default function Novo() {
     <div className="flex-1 overflow-y-auto bg-background">
       <header className="sticky top-0 z-10 border-b bg-background/95 px-6 py-5 backdrop-blur">
         <h1 className="text-2xl font-bold">Novo registro</h1>
-        <p className="mt-1 text-[14px] text-muted-foreground">O formulário vem do contrato — obrigatório e opcional. Sem modelo, registra e vira pendente.</p>
+        <p className="mt-1 text-[14px] text-muted-foreground">O formulário vem do contrato — obrigatório e opcional. Sem modelo, registra sem ativação.</p>
       </header>
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 md:px-6">
         <label className="block">
           <span className="text-[13px] font-medium">Modelo</span>
           <select value={processId} onChange={e=> setProcessId(e.target.value)} className="mt-2 w-full rounded-xl border bg-background px-3 py-2.5 text-[14px]">
-            <option value="">— sem modelo (registra e vira pendente)</option>
+            <option value="">— sem modelo</option>
             <optgroup label="Prontos para usar">
               {runnable.map(t => <option key={t.process_id} value={t.process_id}>{t.title || t.process_id} {t.needs_approval?"· precisa confirmar":""} {t.irreversible?"· sem volta":""} · {t.danger_tier}</option>)}
             </optgroup>
@@ -99,12 +109,12 @@ export default function Novo() {
           <Field label="O que é (this)" value={fields.this ?? ""} onChange={v=>setField("this", v)} required />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Ação (did)" value={fields.did ?? ""} onChange={v=>setField("did", v)} hint="ex: note, audit" />
-            <Field label="Estado (status)" value={fields.status ?? ""} onChange={v=>setField("status", v)} hint="open/fechado" />
+            <Field label="Estado (status)" value={fields.status ?? ""} onChange={v=>setField("status", v)} hint="use o vocabulário do Act" />
           </div>
           <label className="block"><span className="text-[13px] font-medium">Descrição / motivo</span><textarea value={fields.descricao ?? ""} onChange={e=>setField("descricao", e.target.value)} placeholder="Ex: revisão trimestral do balanço Q3" className="mt-1.5 min-h-24 w-full rounded-xl border bg-background px-3 py-2.5 text-[14px]" /></label>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Confirmado por" value={fields.confirmed_by ?? ""} onChange={v=>setField("confirmed_by", v)} hint="evidência" />
-            <Field label="Se ok (if_ok)" value={fields.if_ok ?? ""} onChange={v=>setField("if_ok", v)} hint="próximo passo" />
+            <Field label="Se ok (if_ok)" value={fields.if_ok ?? ""} onChange={v=>setField("if_ok", v)} hint="ramo semântico do Act" />
           </div>
           {(selected?.requires.length ?? 0) > 0 && (
             <>
@@ -120,11 +130,11 @@ export default function Novo() {
           )}
         </div>
 
-        <button onClick={()=>register.mutate()} disabled={register.isPending || !fields.this} className="w-full rounded-full bg-foreground py-3 text-[15px] font-medium text-background hover:opacity-90 disabled:opacity-50">
-          {register.isPending ? "Registrando..." : selected?.irreversible ? "Registrar — ação sem volta" : selected?.needs_approval ? "Registrar — precisa confirmar" : "Registrar"}
+        <button onClick={()=>append.mutate()} disabled={append.isPending || !fields.this} className="w-full rounded-full bg-foreground py-3 text-[15px] font-medium text-background hover:opacity-90 disabled:opacity-50">
+          {append.isPending ? "Registrando..." : selected?.irreversible ? "Registrar — ação sem volta" : selected?.needs_approval ? "Registrar — precisa confirmar" : "Registrar"}
         </button>
         {result && <p className={`rounded-xl border p-3 text-[13px] ${result.ok?"bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30":"bg-amber-50 border-amber-200 dark:bg-amber-950/30"}`}>{result.msg} {result.fingerprint && <a href={`/casos/${result.fingerprint}`} className="font-medium underline">ver caso</a>}</p>}
-        <p className="text-center text-[12px] text-muted-foreground">Tudo registra. Só avança o que está completo, com modelo compatível e permissão quando exigido. Sem recibo, sem check verde.</p>
+        <p className="text-center text-[12px] text-muted-foreground">O Act só é acrescentado depois da verificação objetiva. Consequências vêm depois do append; nada reescreve o histórico.</p>
       </div>
     </div>
   );

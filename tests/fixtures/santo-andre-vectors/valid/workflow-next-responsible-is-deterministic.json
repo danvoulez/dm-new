@@ -1,10 +1,10 @@
 {
-  "vector": "workflow-with-floating-policy-name",
-  "expect": "invalid",
+  "vector": "workflow-next-responsible-is-deterministic",
+  "expect": "valid",
   "tests": [
-    "law 13"
+    "law 15"
   ],
-  "reason": "A workflow node cites policy by a floating name instead of a declaration hash. pack/policy/workflow/template cite hashes; names live only in lenses.",
+  "reason": "The current custody is the card-table node. Outcome=ok selects that node's if_ok target gate-intake, whose responsible actor becomes the next custody. Routing is deterministic: read from the process type, never improvised by a runtime or chosen by an LLM.",
   "workflow": {
     "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
     "start": "card-table",
@@ -13,7 +13,7 @@
         "activity": "draft candidate",
         "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "accepts_template": "2222222222222222222222222222222222222222222222222222222222222222",
-        "policy": "santo-andre.policy.card.v0",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
         "qualifier": "0",
         "runtime": "0",
         "if_ok": "gate-intake",
@@ -50,7 +50,7 @@
   "act": {
     "who": "dan",
     "did": "played",
-    "this": "valid except the workflow node names its policy instead of hashing it",
+    "this": "a card played at the card-table, judged ok",
     "when": "2026-06-15T03:00:00Z",
     "confirmed_by": "pack-vector",
     "if_ok": "proceed",
@@ -64,5 +64,11 @@
     "qualifier": "0",
     "runtime": "0",
     "run": "0"
+  },
+  "routing": {
+    "node": "card-table",
+    "outcome": "ok",
+    "expected_next_node": "gate-intake",
+    "expected_next_responsible": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
   }
 }

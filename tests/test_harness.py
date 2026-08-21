@@ -1,3 +1,5 @@
+import json
+
 from lab.harness import VectorSource, build_registry, judge_vector, load_vector_sources, run_harness
 
 
@@ -25,13 +27,21 @@ def test_loader_keeps_source_path_and_directory_expectation():
         assert source.vector["expect"] == source.category
 
 
-def test_judge_rejects_missing_sent_to():
+def test_fixture_corpus_has_no_legacy_recipient_routing_language():
+    for source in load_vector_sources():
+        rendered = json.dumps(source.vector, sort_keys=True)
+        assert "sent_to" not in rendered, source.path
+        assert "next_if_" not in rendered, source.path
+        assert "from_sent_to" not in rendered, source.path
+
+
+def test_judge_rejects_missing_responsible():
     verdict = judge_vector({
         "vector": "missing-route",
         "expect": "invalid",
         "tests": ["law 4"],
-        "reason": "no destination",
-        "envelope": {"transport": {"channel": "test"}},
+        "reason": "no current responsible actor",
+        "custody": {},
         "act": {
             "who": "dan",
             "did": "played",
@@ -48,7 +58,34 @@ def test_judge_rejects_missing_sent_to():
         },
     })
     assert verdict["verdict"] == "invalid"
-    assert "missing transport.sent_to" in verdict["problems"]
+    assert "missing custody.responsible" in verdict["problems"]
+
+
+def test_judge_rejects_legacy_recipient_keys_fail_loud():
+    verdict = judge_vector({
+        "vector": "legacy-route",
+        "expect": "invalid",
+        "tests": ["law 15"],
+        "reason": "legacy routing must not be silently adapted",
+        "custody": {"responsible": "actor:gate"},
+        "envelope": {"transport": {"sent_to": "a" * 64}},
+        "act": {
+            "who": "dan",
+            "did": "played",
+            "this": "card",
+            "when": "2026-06-22T00:00:00Z",
+            "confirmed_by": "test",
+            "if_ok": "ok",
+            "if_doubt": "doubt",
+            "if_not": "not",
+            "status": "candidate",
+            "qualifier": "0",
+            "runtime": "0",
+            "run": "0",
+        },
+    })
+    assert verdict["verdict"] == "invalid"
+    assert "legacy routing field forbidden: envelope.transport.sent_to" in verdict["problems"]
 
 
 def test_registry_is_derived_from_valid_fixtures_not_hardcoded():
@@ -60,7 +97,7 @@ def test_registry_is_derived_from_valid_fixtures_not_hardcoded():
             "expect": "valid",
             "tests": ["law 13"],
             "reason": "fixture-local registered hashes",
-            "envelope": {"transport": {"sent_to": "a" * 64}},
+            "custody": {"responsible": "actor:gate"},
             "act": {
                 "who": "dan",
                 "did": "registered",

@@ -6,18 +6,13 @@
     "law 10"
   ],
   "reason": "Register-only Acts must carry qualifier=0, runtime=0, and run=0; no code runs.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",
     "did": "registered",
-    "this": "a register-only note under the Santo Andr\u00e9 Lab Pack",
+    "this": "a register-only note under the Santo André Lab Pack",
     "when": "2026-06-15T03:00:00Z",
     "confirmed_by": "pack-vector",
     "if_ok": "proceed",

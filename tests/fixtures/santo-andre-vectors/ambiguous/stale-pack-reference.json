@@ -5,14 +5,9 @@
     "law 13",
     "law 18"
   ],
-  "reason": "The Act pins a pack declaration hash that has since been superseded. Admitting as current would be false; flat refusal would erase that it was valid under that pack \u2014 open a ghost.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "reason": "The Act pins a pack declaration hash that has since been superseded. Admitting as current would be false; flat refusal would erase that it was valid under that pack — open a ghost.",
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

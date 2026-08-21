@@ -1,11 +1,16 @@
 import type { PgClient } from "./db";
+import { migrateCustodyExecutor } from "./custody-executor-migrate";
+import { migrateLedgerRegistry } from "./ledger-registry";
+import { migrateProcessMachine } from "./process-migrate";
 
 /**
  * Upgrade the canonical Postgres ledger from receipt v0 storage assumptions to v1.
  *
  * This is intentionally idempotent because `/api/migrate` is an operational bootstrap
  * endpoint. It preserves every historical row byte-for-byte, changes row identity from
- * content_hash to tuple_hash, and makes content_hash a non-unique semantic index.
+ * content_hash to tuple_hash, makes content_hash a non-unique semantic index, installs
+ * ledger-native registry projections, then installs process custody and its ephemeral
+ * executor lease metadata.
  */
 export async function migrateReceiptV1(client: PgClient): Promise<void> {
   await client.query(`
@@ -65,4 +70,7 @@ export async function migrateReceiptV1(client: PgClient): Promise<void> {
         )
       );
   `);
+  await migrateLedgerRegistry(client);
+  await migrateProcessMachine(client);
+  await migrateCustodyExecutor(client);
 }

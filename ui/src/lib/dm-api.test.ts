@@ -8,10 +8,11 @@ describe("dmApi", () => {
     expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("/api/now"), expect.anything());
     fetchSpy.mockRestore();
   });
-  it("registers via POST /api/register", async () => {
+  it("appends semantic proposals via POST /api/append", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ registered: true, id: "a".repeat(64), fingerprint: "a".repeat(8) }), { status: 200 }));
-    await dmApi.register({ who: "local@dm", did: "note", this: "hi" });
-    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("/api/register"), expect.objectContaining({ method: "POST" }));
+    await dmApi.append({ who: "local@dm", did: "note", this: "hi", when: "2026-08-21T17:00:00Z", confirmed_by: "local@dm", if_ok: "", if_doubt: "", if_not: "", status: "ok", envelope: {} });
+    expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining("/api/append"), expect.objectContaining({ method: "POST" }));
+    expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining("/api/register"), expect.anything());
     fetchSpy.mockRestore();
   });
 });

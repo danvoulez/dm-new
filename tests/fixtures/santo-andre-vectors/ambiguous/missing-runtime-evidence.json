@@ -5,14 +5,9 @@
     "law 12",
     "law 21"
   ],
-  "reason": "The result Act claims a run hash, but the run evidence cannot be resolved. Not a false green, not a hard refusal \u2014 open a ghost / request evidence.",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
+  "reason": "The result Act claims a run hash, but the run evidence cannot be resolved. Not a false green, not a hard refusal — open a ghost / request evidence.",
+  "custody": {
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",

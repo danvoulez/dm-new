@@ -1,22 +1,16 @@
 {
-  "vector": "card-without-sent_to",
+  "vector": "card-without-responsible",
   "expect": "invalid",
   "tests": [
     "law 4",
     "law 7"
   ],
-  "reason": "A played card must carry transport.sent_to. With no destination, routing would be inferred \u2014 forbidden ('no the LLM will know').",
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
-    }
-  },
+  "reason": "A played card must have explicit current custody with a responsible actor. Without responsibility, routing would be inferred — forbidden ('no the LLM will know').",
+  "custody": {},
   "act": {
     "who": "dan",
     "did": "played",
-    "this": "a card played with no destination on the envelope",
+    "this": "a card played with no responsible actor in custody",
     "when": "2026-06-15T03:00:00Z",
     "confirmed_by": "pack-vector",
     "if_ok": "proceed",

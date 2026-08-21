@@ -1,10 +1,10 @@
 {
-  "vector": "workflow-with-floating-policy-name",
+  "vector": "off-graph-custody",
   "expect": "invalid",
   "tests": [
-    "law 13"
+    "law 15"
   ],
-  "reason": "A workflow node cites policy by a floating name instead of a declaration hash. pack/policy/workflow/template cite hashes; names live only in lenses.",
+  "reason": "The observed custody moved to a node the workflow never declared. Off-graph movement is refused; process instances advance only through the selected if_ok/if_doubt/if_not branch.",
   "workflow": {
     "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
     "start": "card-table",
@@ -13,7 +13,7 @@
         "activity": "draft candidate",
         "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "accepts_template": "2222222222222222222222222222222222222222222222222222222222222222",
-        "policy": "santo-andre.policy.card.v0",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
         "qualifier": "0",
         "runtime": "0",
         "if_ok": "gate-intake",
@@ -44,13 +44,13 @@
     }
   },
   "custody": {
-    "node": "card-table",
-    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    "node": "open-road",
+    "responsible": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
   },
   "act": {
     "who": "dan",
     "did": "played",
-    "this": "valid except the workflow node names its policy instead of hashing it",
+    "this": "a card whose custody moved outside the declared process graph",
     "when": "2026-06-15T03:00:00Z",
     "confirmed_by": "pack-vector",
     "if_ok": "proceed",
@@ -64,5 +64,11 @@
     "qualifier": "0",
     "runtime": "0",
     "run": "0"
+  },
+  "routing": {
+    "node": "card-table",
+    "outcome": "ok",
+    "actual_next_node": "open-road",
+    "actual_next_responsible": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
   }
 }
