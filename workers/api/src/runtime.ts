@@ -1,6 +1,7 @@
 import type { PgClient } from "./db";
 import { appendAct, getAct } from "./db";
 import { humanProcessTitle, loadContracts, REGISTERED_ADAPTERS, type ProcessContract } from "./contracts";
+import { custodyExecutorRunOnce, type CustodyExecutionResult } from "./custody-executor";
 import { evaluate, type Evaluation } from "./evaluator";
 import { renderMessage } from "./messages";
 import { verifyGrantForExecution } from "./grants";
@@ -218,7 +219,10 @@ async function closeWithoutDispatch(client: PgClient, item: QueueItem, decision:
   return closeQueue(client, item.queue_id, result.id);
 }
 
-export async function executorRunOnce(client: PgClient, worker = "api"): Promise<QueueItem | null> {
+export async function executorRunOnce(client: PgClient, worker = "api"): Promise<QueueItem | CustodyExecutionResult | null> {
+  const custody = await custodyExecutorRunOnce(client, "runtime.executor", worker);
+  if (custody) return custody;
+
   const item = await claim(client, worker);
   if (!item) return null;
   try {
@@ -446,7 +450,6 @@ export async function candidatesView(client: PgClient, limit = 50) {
   return { count: candidates.length, candidates };
 }
 
-
 const PROCESS_INTERNAL_DIDS = [
   "authority", "authority-revoke", "authenticator-enroll", "authenticator-revoke", "authenticator-counter",
   "grant", "grant-revoke", "grant-signoff", "queued", "dispatching", "doubt", "not_dispatched",
@@ -506,7 +509,6 @@ export async function processesView(client: PgClient, limit = 100) {
   });
   return { count: processes.length, processes };
 }
-
 
 export async function resumeGrantSources(client: PgClient, grantId: string) {
   const sources = await client.query<{ content_hash: string }>(
