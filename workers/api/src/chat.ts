@@ -90,7 +90,7 @@ function bridgeModel(env: ChatEnv, model: string) {
           })),
           tool_choice: request.tool_choice,
           temperature: 0,
-          max_tokens: 900,
+          max_tokens: 1200,
         }),
       });
       if (!response.ok) {
@@ -154,27 +154,29 @@ export async function runChatTurn(
   const conversationId = input.conversation_id || crypto.randomUUID();
   const history = await loadHistory(env.PROJECTIONS, conversationId);
   const identity = String(input.identity ?? "").trim();
+  const edgeNow = new Date().toISOString();
 
-  const result = await runDreamTurn({ message: input.message, conversation_id: conversationId, history }, {
+  const result = await runDreamTurn({
+    message: input.message,
+    conversation_id: conversationId,
+    history,
+    trusted_context: { identity, now: edgeNow },
+  }, {
     model: bridgeModel(env, selectedModel.id),
     searchProcesses: (query) => searchProcesses(client, query),
     readProcessContract: (processId) => readProcessContract(client, processId),
     formalizeActs: async (proposals: FormalizedActProposal[]) => {
-      const catalog = await loadContracts(client);
+      const processCatalog = await loadContracts(client);
       const outcomes: Array<Record<string, unknown>> = [];
       for (const proposal of proposals) {
         const processId = String(proposal.process_id ?? "");
-        const fields = assembleAct(proposal, {
-          session: { who: identity, confirmed_by: identity },
-          clock: { when: new Date().toISOString() },
-          evidence: {},
-        }, processId ? catalog.get(processId) : undefined);
+        const fields = assembleAct(proposal, processId ? processCatalog.get(processId) : undefined);
         const outcome = await registerFlow(client, fields, {
           append: appendAct,
           loadCatalog: loadContracts,
           evaluateReceipt: evaluate,
           selectReceiver: receiverSelect,
-        });
+        }, identity ? { identity } : {});
         outcomes.push(registerResponse(outcome));
       }
       return outcomes;

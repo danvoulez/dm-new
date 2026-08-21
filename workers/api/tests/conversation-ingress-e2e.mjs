@@ -11,6 +11,33 @@ assert.ok(projectionSeed, "projection-build.v1 must exist");
 const contract = { ...projectionSeed.contract, registered_hash: CONTRACT_HASH };
 const catalog = new Map([[contract.process_id, contract]]);
 
+function pureTuple(overrides = {}) {
+  return {
+    who: "dan",
+    did: "registered",
+    this: "Q3 fechou",
+    when: "2026-08-14T10:00:00.000Z",
+    confirmed_by: "dan",
+    if_ok: "close",
+    if_doubt: "clarify",
+    if_not: "close",
+    status: "noted",
+    ...overrides,
+  };
+}
+
+function processTuple(overrides = {}) {
+  return pureTuple({
+    did: "request_projection",
+    this: "Q3",
+    if_ok: "projection-build.v1",
+    if_doubt: "attention-raise.v1",
+    if_not: "stop",
+    status: "registered",
+    ...overrides,
+  });
+}
+
 function scripted(responses) {
   const requests = [];
   return {
@@ -50,11 +77,7 @@ function createHarness(model) {
         calls.push(["formalize_acts", proposals]);
         const outcomes = [];
         for (const proposal of proposals) {
-          const fields = assembleAct(proposal, {
-            session: { who: "dan", confirmed_by: "dan" },
-            clock: { when: "2026-08-14T10:00:00.000Z" },
-            evidence: {},
-          }, proposal.process_id ? contract : undefined);
+          const fields = assembleAct(proposal, proposal.process_id ? contract : undefined);
           const receipt = await mintReceipt(fields);
           const decision = evaluate(receipt, catalog);
           ledger.push({ receipt, decision });
@@ -86,25 +109,35 @@ function createHarness(model) {
   assert.equal(h.ledger.length, 0);
 }
 
-// 2. Registro simples: recebe hash, fica inert e não ganha process_id por inferência.
+// 2. Registro simples: a tupla inteira vem do LLM, recebe hash e fica inert.
 {
-  const proposal = { slots: { did: "registered", this: "Q3 fechou" }, fields: {}, citations: [] };
-  const h = createHarness(scripted([formalizeCall([proposal]), { content: "Registrado." }]));
+  const proposal = { slots: pureTuple(), fields: { free_project_note: "kept" }, citations: [] };
+  const h = createHarness(scripted([formalizeCall([proposal])]));
   const result = await runDreamTurn({ message: "registre que Q3 fechou", conversation_id: "conv_e2e_02" }, h.deps);
   assert.equal(result.registrations.length, 1);
   assert.equal(h.ledger[0].decision.activation_state, "inert");
   assert.equal(h.ledger[0].receipt.process_id, undefined);
+  assert.equal(h.ledger[0].receipt.free_project_note, "kept");
+  assert.deepEqual(
+    Object.fromEntries(Object.keys(proposal.slots).map((slot) => [slot, h.ledger[0].receipt[slot]])),
+    proposal.slots,
+  );
   assert.equal(h.queue.length, 0);
 }
 
-// 3. Processo correto: consulta, cita o contrato e só então fica ativável/queued.
+// 3. Processo correto: consulta, cita o contrato e só depois o runtime deriva consequência.
 {
-  const proposal = { process_id: contract.process_id, contract_hash: CONTRACT_HASH, slots: { did: "request_projection", this: "Q3" }, fields: { projection_spec: "resumo Q3" }, citations: [CONTRACT_HASH] };
+  const proposal = {
+    process_id: contract.process_id,
+    contract_hash: CONTRACT_HASH,
+    slots: processTuple(),
+    fields: { projection_spec: "resumo Q3" },
+    citations: [CONTRACT_HASH],
+  };
   const model = scripted([
     { tool_calls: [{ id: "search", name: "search_processes", arguments: { query: "projeção" } }] },
     { tool_calls: [{ id: "read", name: "read_process_contract", arguments: { process_id: contract.process_id } }] },
     formalizeCall([proposal]),
-    { content: "Pedido registrado." },
   ]);
   const h = createHarness(model);
   await runDreamTurn({ message: "crie uma projeção do Q3", conversation_id: "conv_e2e_03" }, h.deps);
@@ -114,27 +147,38 @@ function createHarness(model) {
   assert.equal(h.queue.length, 1);
 }
 
-// 4. Campo semanticamente errado: preserva o Act, marca incompatible e não despacha.
+// 4. Semântica incompatível não é corrigida: Act preservado, consequência não roteia.
 {
-  const proposal = { process_id: contract.process_id, contract_hash: CONTRACT_HASH, slots: { did: "registered", this: "Q3" }, fields: { projection_spec: "resumo Q3" }, citations: [CONTRACT_HASH] };
+  const proposal = {
+    process_id: contract.process_id,
+    contract_hash: CONTRACT_HASH,
+    slots: processTuple({ did: "registered" }),
+    fields: { projection_spec: "resumo Q3" },
+    citations: [CONTRACT_HASH],
+  };
   const h = createHarness(scripted([
     { tool_calls: [{ id: "read-4", name: "read_process_contract", arguments: { process_id: contract.process_id } }] },
     formalizeCall([proposal]),
-    { content: "Registrei, mas não é compatível." },
   ]));
   await runDreamTurn({ message: "registre como projeção", conversation_id: "conv_e2e_04" }, h.deps);
   assert.match(h.ledger[0].receipt.id, /^[0-9a-f]{64}$/);
+  assert.equal(h.ledger[0].receipt.did, "registered", "backend must not coerce the semantic field");
   assert.equal(h.ledger[0].decision.activation_state, "incompatible");
   assert.equal(h.queue.length, 0);
 }
 
-// 5. Campo auxiliar ausente: preserva o Act, marca incompleto e não despacha.
+// 5. AUX ausente é consequência do contrato atual, não falha estrutural da LogLine.
 {
-  const proposal = { process_id: contract.process_id, contract_hash: CONTRACT_HASH, slots: { did: "request_projection", this: "Q3" }, fields: {}, citations: [CONTRACT_HASH] };
+  const proposal = {
+    process_id: contract.process_id,
+    contract_hash: CONTRACT_HASH,
+    slots: processTuple(),
+    fields: {},
+    citations: [CONTRACT_HASH],
+  };
   const h = createHarness(scripted([
     { tool_calls: [{ id: "read-5", name: "read_process_contract", arguments: { process_id: contract.process_id } }] },
     formalizeCall([proposal]),
-    { content: "Falta a especificação." },
   ]));
   await runDreamTurn({ message: "crie uma projeção", conversation_id: "conv_e2e_05" }, h.deps);
   assert.equal(h.ledger[0].decision.activation_state, "incompleto");
@@ -142,13 +186,13 @@ function createHarness(model) {
   assert.equal(h.queue.length, 0);
 }
 
-// 6. Dois fatos são dois Acts e dois hashes, não um texto composto opaco.
+// 6. Dois fatos são dois Acts e dois hashes.
 {
   const proposals = [
-    { slots: { did: "registered", this: "Q3 fechou" }, fields: {}, citations: [] },
-    { slots: { did: "registered", this: "Q4 abriu" }, fields: {}, citations: [] },
+    { slots: pureTuple({ this: "Q3 fechou" }), fields: {}, citations: [] },
+    { slots: pureTuple({ this: "Q4 abriu" }), fields: {}, citations: [] },
   ];
-  const h = createHarness(scripted([formalizeCall(proposals), { content: "Dois registros feitos." }]));
+  const h = createHarness(scripted([formalizeCall(proposals)]));
   await runDreamTurn({ message: "registre os dois fatos", conversation_id: "conv_e2e_06" }, h.deps);
   assert.equal(h.ledger.length, 2);
   assert.equal(new Set(h.ledger.map(({ receipt }) => receipt.id)).size, 2);
@@ -156,15 +200,17 @@ function createHarness(model) {
 
 // 7. Correção é um novo Act que cita o anterior; nunca reescreve o hash anterior.
 {
-  const prior = await mintReceipt(assembleAct({ slots: { did: "registered", this: "era Q3" } }, {
-    session: { who: "dan", confirmed_by: "dan" }, clock: { when: "2026-08-14T09:00:00.000Z" }, evidence: {},
-  }));
-  const correction = { slots: { did: "registered", this: "era Q4" }, fields: { corrects: prior.id }, citations: [prior.id] };
-  const h = createHarness(scripted([formalizeCall([correction]), { content: "Correção registrada." }]));
+  const prior = await mintReceipt(assembleAct({ slots: pureTuple({ this: "era Q3" }), fields: {}, citations: [] }));
+  const correction = {
+    slots: pureTuple({ this: "era Q4" }),
+    fields: { corrects: prior.id },
+    citations: [prior.id],
+  };
+  const h = createHarness(scripted([formalizeCall([correction])]));
   await runDreamTurn({ message: "corrija: era Q4", conversation_id: "conv_e2e_07" }, h.deps);
   assert.notEqual(h.ledger[0].receipt.id, prior.id);
   assert.equal(h.ledger[0].receipt.corrects, prior.id);
   assert.deepEqual(h.ledger[0].receipt.citations, [prior.id]);
 }
 
-console.log("conversation ingress e2e: ok (7 product cases, zero improper dispatch)");
+console.log("conversation ingress e2e: 7 cases on complete LLM-authored tuples");
