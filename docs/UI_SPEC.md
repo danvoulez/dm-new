@@ -1,338 +1,302 @@
-# Interface Protocolo — especificação
+# Interface Protocolo — especificação v1.2
 
-Camada humana para o runtime. O objetivo é não vazar nem uma palavra do vocabulário de
-implementação, e tornar óbvias as duas únicas coisas que o usuário precisa sentir.
+Camada humana para o runtime canônico do Worker.
 
-Contratos de endpoint em [`API.md`](API.md).
+A interface deve tornar simples o que é simples para a pessoa sem apagar as invariantes do
+sistema por baixo.
+
+Contrato HTTP em [`API.md`](API.md).
 
 ---
 
 ## 01 · Princípios
 
-O runtime expõe hoje `if_ok`, `content_hash`, `adapter`, `danger_tier: L4`,
-`evidence_obligation_unmet`. Nada disso é complexidade do domínio — é vocabulário de
-implementação. Por baixo há só duas ideias.
+### Nada some
 
-**Nada se perde.** Tudo que chega é registrado. Sem porta, sem triagem, sem alguém
-decidindo se merece entrar. O que não pôde andar fica registrado do mesmo jeito, com nome
-e motivo.
+Um Act objetivamente válido pode existir mesmo que não dispare processo nenhum. A interface
+não inventa movimento para justificar a existência do registro.
 
-**Nada anda sozinho.** Registrar é livre; andar é que tem lei. Um registro completo que
-casa com um processo existente ativa. O resto espera — visível, nunca perdido.
+### Nada anda antes de ser verificado e registrado
 
-> **A lei em uma linha:** tudo registra, só ativa o que está completo e casa com um
-> processo registrado. São duas camadas separadas, e a interface nunca deve fundi-las.
-> Não existe tela que decida se algo vira registro.
+A ordem é fixa:
 
-### Cinco regras de interação
+```text
+proposta -> verificar -> registrar no ledger -> rotear/avaliar -> produzir efeito
+```
 
-1. **O contrato é o formulário.** Cada tipo declara o que exige (`requires`) e o que
-   aceita (`accepts`). A interface gera o formulário a partir disso. Nunca se escreve
-   formulário à mão.
-2. **Todo erro é uma pendência com um botão.** O vocabulário de falha é fechado em 27
-   códigos, cada um com frase e ação. Um "ocorreu um erro" genérico é um bug de produto.
-3. **Nunca diga "pronto" sem comprovante.** O executor se recusa a fechar sem a
-   comprovação declarada. A interface espelha: sem comprovante, nada de check verde.
-4. **Estado é frase, não etiqueta.** Em vez de um chip escrito `doubted`, escreva
-   "Registrado. Falta o motivo para andar."
-5. **Atrito só na aprovação.** Todo o resto em um clique — inclusive registrar, que não
-   tem clique nenhum.
+Se a proposta é inválida, falha antes do append. Se foi registrada e o passo seguinte
+falhou, a interface não finge que o registro desapareceu.
+
+### A interface não é coautora silenciosa
+
+Quem produz a proposta completa os nove slots LogLine mais AUX e envelope. O backend
+confere fatos objetivos e invariantes; não preenche semântica ausente para “ajudar”.
+
+### Ator não é escriba
+
+`who` descreve o ator da proposição. A identidade autenticada de quem digitou, chamou a
+API ou operou o modelo é outro fato. Não misture os dois na interface.
 
 ---
 
-## 02 · Léxico
+## 02 · Léxico humano
 
-Não se inventa vocabulário novo. O institucional brasileiro já está instalado na cabeça
-do usuário e encaixa quase termo a termo.
+| Runtime | Interface |
+|---|---|
+| Act / append | protocolar / registro |
+| receipt | comprovante |
+| content_hash | identidade do conteúdo |
+| tuple_hash | ocorrência / comprovante específico |
+| opened_process | início do processo |
+| process instance | processo / caso |
+| responsible | com quem está |
+| custody | trabalho atual |
+| doubt | pendência |
+| evidence | comprovação |
+| grant + signoff | autorização assinada |
+| projection | extrato / resumo |
+| candidate | proposta |
 
-| No backend | Na interface | Observação |
-|---|---|---|
-| register / Act | protocolar / um registro | O verbo de qualquer balcão |
-| activate | andar / entrar em movimento | A camada que tem lei |
-| receipt | comprovante | Sempre com data e impressão digital |
-| content_hash | impressão digital | 8 caracteres. Nunca os 64 |
-| doubt / doubted | pendência | "Exigência" quando falta documento |
-| fechado | concluído | Só aparece com comprovante junto |
-| process contract | tipo de solicitação | Exibir `title`, nunca `process_id` |
-| grant + signoff | autorização assinada | Modelo mental: procuração |
-| authority | quem pode assinar | Uma lista de pessoas |
-| projection | extrato | Sempre rotulado como resumo |
-| candidate | proposta | Registrada como tudo. Não passou pela lei de ativação |
-| evidence | comprovação | O que a ação teve que provar para fechar |
-| danger_tier L0–L3 | — | Não exibir |
-| danger_tier L4 | "precisa de aprovação" | Reversível |
-| danger_tier L5 | "não dá pra desfazer" | Irreversível |
-| queue / selector / executor | — | Nunca exibir |
-
-**Corrigir na fonte:** o vocabulário de estado do runtime é bilíngue e inconsistente —
-`fechado`, `processando`, `ativável`, `incompleto` convivem com `doubted`, `queued`,
-`ghost` nos mesmos campos. A interface normaliza na borda, mas o certo é padronizar no
-runtime, senão cada consumidor reimplementa a tradução e eles divergem.
+Nunca mostre `runtime_queue`, `selector`, `executor`, `tuple_hash`, `if_ok` ou outras
+palavras de implementação como se fossem linguagem institucional comum. Elas podem existir
+num painel técnico copiável, não como frase principal da tela.
 
 ---
 
-## 03 · As telas
+## 03 · Identidade e comprovante
 
-Oito telas, cada uma com um trabalho só. Nenhuma é dashboard de métricas, e nenhuma
-decide se algo vira registro.
+Receipt v1 separa três coisas:
 
-### T0 · Conversar — *falar e já estar registrado*
+```text
+content_hash  = identidade semântica
+envelope_hash = identidade do contexto/ancestralidade
+tuple_hash    = ocorrência concreta no ledger
+```
 
-A porta da frente, que não é porta. Ver §04.
+Para uma pessoa, o comprovante mostrado deve ser curto e copiável, mas o detalhe técnico
+precisa preservar o hash completo quando necessário.
 
-### T1 · Agora — *"tem algo comigo?"*
+Em processos, o `content_hash` do `opened_process` é a identidade permanente da instância.
+Os atos seguintes pertencem ao caso por `envelope.process` e formam a corrente por
+`envelope.parent`.
 
-Três perguntas, nessa ordem: **precisa de mim** (pendências + autorizações esperando),
-**está andando**, **fechou hoje**. Vazio é uma resposta: "Nada esperando por você."
+---
 
-Nunca aparece aqui: contagem de fila, tamanho do ledger, throughput, tempo médio. Sem
-tempo estimado — o sistema não promete prazo, a interface não inventa um.
+## 04 · Telas
+
+### T0 · Conversar
+
+A conversa serve para produzir propostas completas e explicáveis.
+
+O modelo trabalha apenas com:
+
+```text
+about
+search
+append
+```
+
+A conversa deve distinguir claramente:
+
+1. proposta ainda não submetida;
+2. proposta recusada antes do append;
+3. Act registrado;
+4. Act registrado que abriu/moveu um processo;
+5. Act registrado que não acionou nada.
+
+Nunca transformar “não acionou nada” em erro genérico.
+
+### T1 · Agora
 
 `GET /api/now`
 
-### T2 · Protocolar — *registrar por formulário*
+Responder quatro perguntas práticas:
 
-O caminho de teclado, para quem repete a mesma solicitação. Escolhe-se o tipo numa lista
-em português, e o formulário se monta de `requires` / `accepts`. Os nove slots não viram
-nove campos: `who`, `did`, `this`, `when`, `confirmed_by`, `status` vêm da sessão e do
-tipo; as contingências vêm do contrato.
+- precisa de mim?
+- precisa de operador?
+- o que está andando?
+- o que fechou recentemente?
 
-`GET /api/process-types` → `POST /api/register`
+Essas respostas vêm de replay do processo + custody atual. Contagem de fila legada não é
+verdade de produto.
 
-### T3 · Pendências — *destravar o que parou*
+### T2 · Protocolar
 
-A tela mais importante, e a que o backend mais recompensa. Cada item: **frase**
-(interpolada, nunca o código), **ação** (um botão só), **quem resolve** (usuário ou
-operador — 12 dos 27 códigos são configuração que o usuário não tem como resolver;
-mostrar os dois igual seria crueldade), **detalhes técnicos** (recolhido, copiável).
+`GET /api/process-types` → `POST /api/append`
 
-`GET /api/pendencies`, catálogo em `GET /api/vocabulary`
+O formulário pode ser guiado pelo tipo de processo, mas a proposta final precisa conter os
+nove slots LogLine completos, AUX e envelope.
 
-### T4 · O caso — *entender o que aconteceu*
+Não existe preenchimento invisível pelo backend das contingências `if_ok`, `if_doubt` e
+`if_not`. Se a interface as deriva de uma definição escolhida, isso acontece no lado de
+autoria e a proposta enviada já chega completa.
 
-Linha do tempo vertical. Quando não anda, a linha diz o motivo em vez de sumir. As
-arestas de proveniência viram links "veio de" / "gerou"; `resolves: false` nunca vira
-link. É aqui que os campos compilados moram.
+### T3 · Pendências
+
+`GET /api/pendencies`
+
+Cada item mostra:
+
+- frase humana do que está esperando;
+- quem é o responsável atual;
+- uma ação principal;
+- detalhe técnico opcional;
+- link para o caso.
+
+Custody antiga que não corresponde mais ao head atual não deve aparecer como pendência
+vigente.
+
+### T4 · O caso
 
 `GET /api/cases/{hash}`
 
-### T5 · Aprovar — *autorizar com consciência do risco*
+Linha do tempo derivada do ledger.
 
-Único lugar com atrito deliberado. Ver §06.
+Para processo canônico:
 
-### T6 · Propostas — *dar seguimento ao que foi sugerido*
+- começa no `opened_process`;
+- segue os Acts ligados à instância;
+- mostra o nó atual e o responsável atual;
+- preserva a cadeia de ocorrências;
+- não depende de blob mutável de estado.
 
-Saída de modelo é registrada como proposta: está no ledger, com comprovante, como tudo.
-Só não passou pela lei de ativação, porque proposta não traz processo casado. Dar
-seguimento é registrar um novo ato que casa com um tipo. As fontes citadas são clicáveis
-porque o runtime já conferiu que existem.
+### T5 · Aprovar
+
+Único lugar com atrito deliberado.
+
+Aprovação não é um atalho para o modelo, router ou executor. Trabalho perigoso só pode
+produzir efeito quando grant, signoff e demais condições de segurança estiverem válidas no
+momento da execução.
+
+### T6 · Propostas
 
 `GET /api/candidates`
 
-### T7 · Extratos — *consultar sem confundir com a fonte*
+Proposta não é autoridade. Aprovar visualmente uma sugestão significa produzir um novo Act
+ou executar o rito de controle apropriado — nunca transformar o candidato anterior em
+ordem mutável.
 
-Rótulo permanente, nunca dispensável: *"Isto é um resumo, não é a fonte. Gerado em…"* E
-um botão **Refazer do zero** — deixe o usuário provar o número na frente dele.
+### T7 · Extratos
 
 `GET /api/projections`
 
+Rótulo permanente:
+
+> Isto é um resumo reconstruível. Não é a fonte.
+
 ---
 
-## 04 · Ingresso por conversa
+## 05 · Processos
 
-O usuário fala. Vira LogLine. Fica registrado. Se os campos casam com um processo
-existente, o processo ativa junto — sem clique, sem confirmação, sem porta. A conversa
-não é a antessala do registro: **a conversa é o registro**.
+### Abertura
 
-### 4.1 LogLine já é uma frase
+Um processo nasce com `opened_process`.
 
-A compilação não atravessa abismo semântico. Os nove slots *são* a estrutura de uma frase
-declarativa com atribuição.
+A interface pode dizer:
 
-> **Dan** **registrou uma nota de auditoria** sobre o **balanço do Q3**, **agora**, por
-> conta própria.
+> Processo aberto · comprovante ab12cd34
 
-| Slot | Vem da frase |
-|---|---|
-| `who` | Dan |
-| `did` | registrou uma nota de auditoria |
-| `this` | balanço do Q3 |
-| `when` | agora |
-| `confirmed_by` | por conta própria |
-| `if_ok` / `if_doubt` / `if_not` | a lei do tipo, não a frase |
+Não precisa mostrar o hash de 64 caracteres no fluxo principal.
 
-As contingências pertencem ao contrato porque são a lei daquele tipo. Quem as escreve
-escreve a lei, e isso acontece em outro momento, com outro ritmo.
+### Movimento
 
-### 4.2 Registrar é incondicional
+O resultado de dispatch é sempre um de:
 
-Não existe triagem. A frase compilada entra no ledger imediatamente, completa ou não.
-Depois disso, e só depois, a lei de ativação faz seu trabalho — a mesma lei para tudo,
-venha de conversa, formulário ou outro processo.
-
-| Campos casam com um tipo | Falta campo, ou não há tipo |
-|---|---|
-| **Registra e anda.** O processo ativa na sequência do registro. A interface reporta os dois fatos separados, porque são dois. | **Registra e espera.** Fica registrado com comprovante e aparece em Pendências dizendo o que falta. Nada perdido, nada redigitado. |
-
-### 4.3 A tela
-
-```
-Você      preciso registrar uma auditoria no balanço do Q3, é a revisão trimestral
-
-Protocolo [Registrado · a3f9c2d1]
-          Nota de auditoria sobre o balanço do Q3, motivo revisão trimestral.
-          [Já está andando]
+```text
+ok | doubt | not
 ```
 
-Faltando informação — o registro **já aconteceu**, a conversa continua para destravar,
-não para autorizar:
+A interface traduz o efeito institucional; não inventa um quarto estado.
 
-```
-Você      preciso auditar o balanço do Q3
+### Responsabilidade
 
-Protocolo [Registrado · 7b2e40c9]
-          Nota de auditoria sobre o balanço do Q3.
-          [Parado — falta o motivo]
-          O que motivou essa auditoria?
+O responsável atual vem do nó canônico do processo.
 
-Você      revisão trimestral
+Pode ser pessoa, equipe ou `runtime.executor`. Claims/leases são coordenação interna e não
+devem aparecer como mudança de responsabilidade institucional.
 
-Protocolo [Registrado · c14d8f02]  [Andando]
-```
+### Encerramento
 
-**Regras de conversa:** nunca reperguntar o que já foi dito; dois pedidos numa frase
-viram dois registros, nunca um; não oferecer o que não roda (`runnable: false` é dito
-como fato, não proposto como opção); a impressão digital aparece sempre, discreta — é o
-que dá a sensação física de que ficou registrado.
-
-### 4.4 Correção é registro novo, não edição
-
-O ledger é append-only, e a conversa funciona igual. Quando a pessoa corrige — *"não, é o
-Q4"* — nada é reescrito: registra-se um novo LogLine citando o anterior, e é esse que
-anda. O primeiro continua lá, como parte da conversa que de fato aconteceu.
-
-Citar o ato anterior já é suportado (`lab/citation.py`). Falta uma convenção de sentido
-para *"isto completa aquilo"*, para T4 desenhar a cadeia como conversa. É convenção de
-campo, não mecanismo novo.
-
-### 4.5 A forma do que sai da compilação
-
-[`schemas/llm/process_ingress.v1.json`](../schemas/llm/process_ingress.v1.json) e
-[`prompts/process_ingress.v1.txt`](../prompts/process_ingress.v1.txt) já estão no repo.
-
-O schema não existe para desconfiar da compilação: existe porque LogLine tem forma, e
-tudo que entra no ledger entra na forma — receipt de pessoa, de processo ou de modelo,
-todos passam pela mesma conferência de shape e de hash.
-
-`additionalProperties: false` mantém a compilação no seu escopo: tipo mais campos de
-domínio. As contingências ficam de fora porque pertencem ao contrato — separação de
-responsabilidade, do mesmo jeito que o relógio dá o `when` e a sessão dá o `who`.
-`citations` registra contra qual versão do contrato a frase foi compilada: proveniência,
-igual à de qualquer outro ato.
-
-| Campo | Vem de |
-|---|---|
-| `who`, `confirmed_by` | sessão — a intenção é da pessoa, a autoria acompanha |
-| `when` | relógio — tempo não se compila de texto |
-| `did`, `this`, campos de domínio | compilação |
-| `if_ok`, `if_doubt`, `if_not` | contrato |
-| `grant_id` | autorização existente |
-
-### 4.6 Quando não há tipo — propor um
-
-A proposta é registrada como tudo mais. O que ela não faz é entrar no catálogo sozinha,
-porque o catálogo é a lei, e lei entra por outro rito. Em português antes de qualquer
-YAML: nome, o que passaria a exigir, o que faria, e se dá pra desfazer.
-
-Se reaproveita uma ação existente, um operador aceita e passa a valer. Se precisa de ação
-nova, o ingresso diz isso e entrega a especificação para quem desenvolve — existem quatro
-ações implementadas, então essa vai ser a resposta comum, e a verdade aqui vale mais que
-completar o formulário.
-
-### 4.7 O que falta construir
-
-| Peça | Estado |
-|---|---|
-| Caminho de inferência (chama modelo, confere forma e proveniência, registra) | existe |
-| `process_ingress.v1.json` + prompt | **neste commit** |
-| Contratos como registros no ledger (para uma compilação citar a versão da lei) | falta |
-| Rota de ingresso: frase → compilação → registro | falta |
-| Convenção "completa" para a cadeia de correção | falta |
-
-Nenhuma ação nova é necessária: o ingresso é o caminho governado de inferência apontado
-para um schema novo.
+Processo fechado é projeção do ledger, não linha mutável numa tabela de casos.
 
 ---
 
-## 05 · Catálogo de pendências
+## 06 · Conversa e autoria
 
-Os 27 códigos vivem em [`lab/messages.py`](../lab/messages.py), servidos por
-`GET /api/vocabulary`. **Renderize de lá, não hardcode.** Um teste
-([`tests/test_messages.py`](../tests/test_messages.py)) trava a completude contra
-`lab.runtime.DOUBT_REASONS`: adicionar uma razão no runtime sem escrever a frase quebra o
-build.
+### O modelo não recebe lei escondida do backend
 
-Distribuição: 15 resolvidos pelo usuário, 12 pelo operador.
+No boundary Dream, o modelo escreve todos os nove slots mais AUX e envelope. Isso inclui as
+contingências.
 
----
+O backend pode oferecer contexto via `about` e `search`; pode rejeitar uma proposta
+objetivamente inválida; não pode completar semântica omitida em silêncio.
 
-## 06 · Aprovação
+### Correção é novo Act
 
-A distinção reversível/irreversível é a informação mais importante da tela — mais que o
-que a ação faz. Ela decide a **forma** da tela, não uma etiqueta.
+O ledger é append-only.
 
-| Reversível (L4) | Irreversível (L5) |
-|---|---|
-| Layout normal, tom calmo | Aviso no topo, não no rodapé |
-| **Aprovar** + biometria | Segurar para confirmar, ou digitar o nome da ação |
-| Uma confirmação | Só então a chave de segurança |
-| | Sem atalho de teclado, sem aprovar em lote |
+Se a pessoa corrige algo, a interface produz outro Act com a proveniência adequada. Não
+edita o anterior para fazer a história parecer limpa.
 
-A tela mostra sempre: o que vai acontecer, quem pediu e quem autoriza, até quando vale,
-limite de uso, onde pode mexer (linguagem de pasta, não caminho absoluto), o que pode
-acessar na rede.
+### Dois pedidos são dois Acts
 
-Todos esses campos já vêm de `GET /api/grants/{id}` — a tela é tradução, não coleta.
-
-Uma autorização sem `valid_until`, `timeout_seconds`, `fs_scope` ou `network_policy`
-válida registra e **nunca verifica**. Colete os quatro no formulário, ou a pessoa vai
-encontrar esses códigos depois sem entender por quê.
+Não compactar semanticamente pedidos distintos em um único registro só para simplificar a
+UI.
 
 ---
 
-## 07 · Sequência
+## 07 · Falha
 
-Ordem por retorno sobre esforço, não por lógica de arquitetura.
+A interface deve separar:
 
-1. **Pendências** — backend completo. Carrega sozinha a promessa "nada se perde". As 27
-   frases dão o maior retorno por hora de design do produto.
-2. **O caso** — leitura pura. Sem risco de escrita, valida o modelo de proveniência.
-3. **Conversar** — não depende do formulário; depende do caminho de escrita e do
-   catálogo. Entrada mais barata e mais completa.
-4. **Protocolar** — o formulário vem depois da conversa, como conforto para quem repete.
-5. **Aprovar** — por último, porque depende da superfície de autorização inteira.
+### Falhou antes de registrar
 
-T1, T6 e T7 saem quase de graça depois de T3 e T4 — são recombinações das mesmas leituras
-com enquadramento diferente.
+Exemplos:
+
+- shape inválido;
+- slot ausente;
+- envelope impossível;
+- parent incorreto;
+- claim objetivo falso.
+
+Mensagem principal: **não foi protocolado**.
+
+### Registrou, mas não moveu
+
+É um fato válido. Pode ser um free tuple ou um Act sem consequência processual.
+
+Mensagem principal: **protocolado; sem movimento automático**.
+
+### Registrou, mas o runtime seguinte falhou
+
+O comprovante continua válido. A pessoa não deve reenviar cegamente e criar duplicata.
+
+Mensagem principal: **protocolado; movimento indisponível** + comprovante.
+
+### Efeito recusado
+
+Grant, signoff, atividade desconhecida, evidência ausente ou custody obsoleta devem falhar
+alto. Nunca transformar em “concluído” para deixar a interface verde.
 
 ---
 
-## 08 · Bloqueios remanescentes
+## 08 · Compatibilidade
 
-Dois dos quatro bloqueios originais foram resolvidos neste commit (parser de contratos;
-superfície de autorização). Restam:
+O repositório ainda contém superfícies antigas para migração e histórico:
 
-- **Autenticação.** A API aceita `who` do corpo. Precisa de uma camada de sessão que
-  forneça a identidade; um navegador não pode afirmar `who`.
-- **Campo de contingência sobrecarregado.** `if_ok` é ao mesmo tempo "o que acontece se
-  der certo" e o endereço que decide qual regra processa o registro
-  (`receiver_select` filtra por `if_ok`; `select_process` resolve `process_id or if_ok`).
-  Para o ingresso isso é ambíguo na hora de compilar: *próximo passo* ou *quem processa*?
-  Separar antes de escrever a rota de ingresso.
-- **Vocabulário de estado bilíngue** (§02).
-- **`select_process` casa por eliminação.** Quando nenhum contrato bate por id, ele
-  aceita o primeiro cujo `completion` passa — então um ato sem tipo casa com um contrato
-  qualquer que não exige nada. É por isso que um ato sem tipo aparece como
-  `no_adapter_configured` em vez de `no_matching_process_contract`. A API reporta o mesmo
-  veredito que o seletor escreve, então os dois nunca divergem na tela, mas a mensagem
-  não é a mais verdadeira que poderia ser.
+- `lab/api.py` com `/api/register`;
+- `runtime_queue`;
+- `process_contracts`;
+- vocabulário antigo de selector/evaluator;
+- documentos históricos e planos com `sent_to` / `next_if_*`.
+
+Essas superfícies não definem o comportamento canônico da interface nova.
+
+A UI de produção deve usar o Worker e `POST /api/append`.
+
+---
+
+## 09 · Regra de produto em uma linha
+
+> **A autoria é explícita, a verificação vem antes do ledger, o ledger vem antes da
+> consequência, e todo estado visível deve poder ser explicado a partir dos Acts.**
