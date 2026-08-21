@@ -3,12 +3,13 @@ import { loadContracts } from "./contracts";
 import { appendAct, type PgClient } from "./db";
 import { evaluate } from "./evaluator";
 import { aboutSystem, searchLedger } from "./ledger-registry";
-import { routeProcessReceipt } from "./process-machine";
+import { processCurrentState, routeProcessReceipt } from "./process-machine";
 import { registerFlow, registerResponse } from "./register-flow";
 import { receiverSelect } from "./runtime";
 import { SLOTS, type ActFields } from "./receipt";
 
 const SYSTEM_FIELDS = new Set(["id", "hashes", "receipt_version", "json_canonicalization"]);
+const HASH = /^[0-9a-f]{64}$/;
 
 export class UniversalToolError extends Error {
   readonly code: string;
@@ -27,7 +28,11 @@ export async function about(client: PgClient) {
 }
 
 export async function search(client: PgClient, query: string, limit = 20) {
-  return searchLedger(client, query, limit);
+  const result = await searchLedger(client, query, limit);
+  const exact = query.trim();
+  if (!HASH.test(exact)) return result;
+  const processState = await processCurrentState(client, exact);
+  return processState ? { ...result, process_instance: processState } : result;
 }
 
 /**
