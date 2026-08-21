@@ -4,6 +4,9 @@ import fs from "node:fs";
 const source = fs.readFileSync(new URL("../src/index.ts", import.meta.url), "utf8");
 const publicRoutes = [...source.matchAll(/app\.(get|post)\("([^\"]+)"/g)].map((m) => `${m[1].toUpperCase()} ${m[2]}`);
 for (const required of [
+  "GET /api/about",
+  "GET /api/search",
+  "POST /api/append",
   "GET /api/now",
   "GET /api/pendencies",
   "GET /api/cases/:hash",
@@ -28,6 +31,10 @@ for (const required of [
 
 assert.ok(!publicRoutes.includes("POST /api/chat/compile"), "parallel chat compile route must stay removed");
 
+const appendRoute = source.slice(source.indexOf('app.post("/api/append"'), source.indexOf('app.get("/api/models"'));
+assert.match(appendRoute, /appendTool\(client, proposal/);
+assert.doesNotMatch(appendRoute, /fields\[slot\]\s*=|new Date\(\)\.toISOString\(\)/, "canonical append route must not fill semantic fields");
+
 for (const marker of [
   /demo-credential/i,
   /success\s*:\s*true[^\n]*stub/i,
@@ -40,4 +47,4 @@ for (const match of source.matchAll(/return c\.json\(\{[^;]*data:\s*\[\][^;]*\}\
   assert.ok(Number(match[1]) >= 400, `empty model list must fail loud, got ${match[1]}`);
 }
 
-console.log(`worker public routes: ok (${publicRoutes.length} declared)`);
+console.log(`worker public routes: canonical about/search/append + compatibility routes ok (${publicRoutes.length} declared)`);
