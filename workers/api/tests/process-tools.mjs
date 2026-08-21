@@ -72,7 +72,7 @@ assert.deepEqual(detail.required_aux, ["projection_spec"]);
 assert.deepEqual(detail.consequence, { adapter: "projection", evidence_must_include: ["projection_hashes"] });
 assert.equal(detail.slot_rules.did.source, "llm");
 
-// The model owns all nine fields. Assembly preserves them byte-for-byte semantically.
+// The model owns all nine fields AND the envelope. Assembly preserves both.
 const authored = tuple({
   who: "machine:lab-8gb",
   when: "2026-08-13T22:10:00.000Z",
@@ -81,6 +81,13 @@ const authored = tuple({
   if_not: "model-chosen-not",
   status: "model-chosen-status",
 });
+const authoredEnvelope = {
+  type: HASH,
+  process: "b".repeat(64),
+  parent: "c".repeat(64),
+  channel: "chat",
+  runtime: "golden-bridge",
+};
 const assembled = assembleAct({
   process_id: "projection-build.v1",
   contract_hash: HASH,
@@ -89,24 +96,28 @@ const assembled = assembleAct({
     projection_spec: "resumo do Q3",
     project_specific_freeform: { note: "AUX is not kernel law" },
   },
+  envelope: authoredEnvelope,
   citations: [HASH],
 }, contract);
 assert.deepEqual(Object.fromEntries(Object.keys(rules).map((slot) => [slot, assembled[slot]])), authored);
+assert.deepEqual(assembled.envelope, authoredEnvelope);
 assert.equal(assembled.process_id, "projection-build.v1");
 assert.equal(assembled.contract_hash, HASH);
 assert.equal(assembled.projection_spec, "resumo do Q3");
 assert.deepEqual(assembled.project_specific_freeform, { note: "AUX is not kernel law" });
 
-// Old contract source rules are context only: they cannot reject/rewrite the tuple.
+// Old contract source rules are context only: they cannot reject/rewrite the tuple/envelope.
 assert.equal(assembled.who, "machine:lab-8gb");
 assert.equal(assembled.if_ok, "model-chosen-ok");
 assert.equal(assembled.status, "model-chosen-status");
+assert.equal(assembled.envelope.channel, "chat");
 
 assert.throws(() => assembleAct({
   process_id: "projection-build.v1",
   contract_hash: HASH,
   slots: { ...tuple(), status: undefined },
   fields: {},
+  envelope: {},
   citations: [HASH],
 }, contract), (error) => error instanceof ProcessToolError && error.code === "slot_type");
 
@@ -115,6 +126,7 @@ assert.throws(() => assembleAct({
   contract_hash: "b".repeat(64),
   slots: tuple(),
   fields: {},
+  envelope: {},
   citations: ["b".repeat(64)],
 }, contract), (error) => error instanceof ProcessToolError && error.code === "contract_hash_mismatch");
 
@@ -126,17 +138,25 @@ const pureTuple = tuple({
   if_not: "close",
   status: "noted",
 });
-const pure = assembleAct({ slots: pureTuple, fields: { arbitrary: true }, citations: [] });
+const pure = assembleAct({ slots: pureTuple, fields: { arbitrary: true }, envelope: {}, citations: [] });
 assert.equal("process_id" in pure, false);
 assert.deepEqual(Object.fromEntries(Object.keys(rules).map((slot) => [slot, pure[slot]])), pureTuple);
 assert.equal(pure.arbitrary, true);
+assert.deepEqual(pure.envelope, {});
+
+assert.throws(() => assembleAct({
+  slots: pureTuple,
+  fields: {},
+  citations: [],
+}, undefined), (error) => error instanceof ProcessToolError && error.code === "envelope_missing");
 
 assert.throws(() => assembleAct({
   process_id: "projection-build.v1",
   contract_hash: HASH,
   slots: tuple(),
   fields: {},
+  envelope: {},
   citations: [HASH],
 }, { ...contract, registered_hash: null }), (error) => error instanceof ProcessToolError && error.code === "contract_not_citable");
 
-console.log("worker process tools: complete tuple is LLM-owned; assembly is lossless");
+console.log("worker process tools: complete tuple + envelope are LLM-owned; assembly is lossless");
