@@ -3,14 +3,14 @@ import { PiArrowRight, PiCheckCircle, PiShieldCheck, PiWarning } from "react-ico
 import type { ChatAction } from "@/lib/dm-api";
 
 function riskBanner(action: ChatAction) {
-  if (action.kind !== "confirm_register") return null;
+  if (action.kind !== "confirm_append") return null;
   if (action.risk === "approval") return { icon: "🟡", text: "Pede sua autorização antes de avançar.", className: "bg-amber-50 text-amber-950 dark:bg-amber-950/20 dark:text-amber-100" };
   if (action.risk === "irreversible") return { icon: "🔴", text: "Não tem volta. A etapa crítica exige Face ID.", className: "bg-red-50 text-red-950 dark:bg-red-950/20 dark:text-red-100" };
   return null;
 }
 
 function buttonLabel(action: ChatAction): string | null {
-  if (action.kind === "confirm_register") return action.missing.length ? null : "Criar processo";
+  if (action.kind === "confirm_append") return action.missing.length ? null : "Acrescentar Act";
   if (action.kind === "confirm_new_type") return "Criar tipo";
   if (action.kind === "confirm_grant") return "Criar autorização";
   if (action.kind === "request_passkey") return "Assinar com Face ID";
@@ -40,7 +40,7 @@ export function ActionCard({ action, busy, onConfirm, onAlternative }: {
           <p className="text-[13px] font-medium leading-5">{summary}</p>
         </div>
 
-        {action.kind === "confirm_register" && action.missing.length ? (
+        {action.kind === "confirm_append" && action.missing.length ? (
           <div className="mt-3 rounded-xl bg-muted/70 px-3 py-2 text-[12px] leading-5">
             <span className="font-medium">Ainda falta:</span> {action.missing.join(" e ")}. Responda no chat, sem formulário.
           </div>
