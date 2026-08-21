@@ -44,7 +44,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-webauthn = ["webauthn>=2,<3"]
+webauthn = ["webauthn>=2,<4"]
 
 [project.urls]
 Homepage = "https://github.com/danvoulez/dm-new"
