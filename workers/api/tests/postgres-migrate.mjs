@@ -10,9 +10,10 @@ const client = {
 };
 
 await migrateReceiptV1(client);
-assert.equal(calls.length, 2);
+assert.equal(calls.length, 3);
 const identitySql = calls[0];
 const registrySql = calls[1];
+const custodySql = calls[2];
 
 assert.match(identitySql, /drop constraint if exists runtime_queue_source_hash_fkey/i);
 assert.match(identitySql, /drop constraint if exists process_contracts_registered_hash_fkey/i);
@@ -26,5 +27,11 @@ assert.match(registrySql, /current_process_types/i);
 assert.match(registrySql, /current_vocabulary/i);
 assert.match(registrySql, /did = 'defined_process_type'/i);
 assert.match(registrySql, /did = 'defined_vocabulary_term'/i);
+assert.match(custodySql, /runtime_custody_queue/i);
+assert.match(custodySql, /process_instance/i);
+assert.match(custodySql, /source_tuple/i);
+assert.match(custodySql, /responsible/i);
+assert.match(custodySql, /lease_until/i);
+assert.match(custodySql, /logline_acts_parent_tuple_idx/i);
 
-console.log("postgres migration: receipt identity + ledger-native registry projections pinned");
+console.log("postgres migration: receipt + registry + process custody runtime pinned");
