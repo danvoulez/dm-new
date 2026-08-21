@@ -12,7 +12,7 @@ import {
   type CustodyQueueItem,
   type ProcessCurrentState,
 } from "./process-machine";
-import { registerFlow } from "./register-flow";
+import { RegisterActivationError, registerFlow } from "./register-flow";
 import { SLOTS, type ActFields, type Receipt } from "./receipt";
 
 export type ExecutableCustodyItem = CustodyQueueItem & {
@@ -318,6 +318,10 @@ export async function custodyExecutorRunOnce(
       result_tuple: resultTuple,
     };
   } catch (error) {
+    if (error instanceof RegisterActivationError) {
+      await recordExecutionResult(client, claim.queue.queue_id, error.receipt.hashes.tuple_hash).catch(() => undefined);
+      throw error;
+    }
     const message = error instanceof Error ? error.message : String(error);
     await recordExecutionError(client, claim.queue.queue_id, message).catch(() => undefined);
     throw error;
