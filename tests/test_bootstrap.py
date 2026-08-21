@@ -42,7 +42,7 @@ def test_bootstrap_local_creates_healthy_empty_ledger(tmp_path):
     out = bootstrap_local(str(db_path))
     assert out['ok'] is True
     assert out['count'] == 0
-    assert out['schema_version'] == 3
+    assert out['schema_version'] == 4
     assert db_path.exists()
 
 
