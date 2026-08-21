@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { ProposalVerificationError, verifyProposal } from "../src/proposal-verifier.ts";
 
 const KNOWN_HASH = "a".repeat(64);
+const OTHER_HASH = "b".repeat(64);
 
 function tuple(overrides = {}) {
   return {
@@ -18,7 +19,10 @@ function tuple(overrides = {}) {
   };
 }
 
-function client({ hashes = [KNOWN_HASH], processes = ["projection-build.v1"] } = {}) {
+function client({
+  hashes = [KNOWN_HASH, OTHER_HASH],
+  processes = { "projection-build.v1": KNOWN_HASH },
+} = {}) {
   return {
     async query(sql, params = []) {
       if (sql.includes("public.logline_acts")) {
@@ -27,7 +31,9 @@ function client({ hashes = [KNOWN_HASH], processes = ["projection-build.v1"] } =
       }
       if (sql.includes("public.process_contracts")) {
         const processId = params[0];
-        return { rows: processes.includes(processId) ? [{ process_id: processId }] : [] };
+        return Object.hasOwn(processes, processId)
+          ? { rows: [{ process_id: processId, registered_hash: processes[processId] }] }
+          : { rows: [] };
       }
       throw new Error(`unexpected query: ${sql}`);
     },
@@ -44,7 +50,7 @@ assert.ok(ugly.checks.includes("tuple_shape"));
 assert.ok(ugly.checks.includes("session_identity"));
 assert.equal(ugly.process_id, null);
 
-// Explicit existing references are objectively verifiable.
+// Explicit existing references are objectively verifiable and bound to the chosen process type.
 const cited = await verifyProposal(client(), {
   ...tuple(),
   citations: [KNOWN_HASH],
@@ -54,6 +60,7 @@ const cited = await verifyProposal(client(), {
 assert.deepEqual(cited.referenced_hashes, [KNOWN_HASH]);
 assert.ok(cited.checks.includes("referenced_hashes_exist"));
 assert.ok(cited.checks.includes("process_type_exists"));
+assert.ok(cited.checks.includes("contract_hash_current"));
 
 await assert.rejects(
   () => verifyProposal(client(), tuple({ who: "mallory@example.com" }), { identity: "dan@example.com" }),
@@ -66,8 +73,22 @@ await assert.rejects(
 );
 
 await assert.rejects(
-  () => verifyProposal(client({ processes: [] }), { ...tuple(), process_id: "ghost-process.v1" }),
+  () => verifyProposal(client({ processes: {} }), { ...tuple(), process_id: "ghost-process.v1" }),
   (error) => error instanceof ProposalVerificationError && error.code === "process_type_not_found",
+);
+
+// An existing hash cannot be cited as the process contract if it is not the registered hash of that type.
+await assert.rejects(
+  () => verifyProposal(client(), {
+    ...tuple(),
+    process_id: "projection-build.v1",
+    contract_hash: OTHER_HASH,
+    citations: [OTHER_HASH],
+  }),
+  (error) => error instanceof ProposalVerificationError
+    && error.code === "contract_hash_mismatch"
+    && error.detail.expected === KNOWN_HASH
+    && error.detail.observed === OTHER_HASH,
 );
 
 await assert.rejects(
