@@ -38,12 +38,20 @@ export async function appendAct(client: PgClient, fields: ActFields): Promise<Re
 }
 
 /** Semantic lookup by content identity. If several occurrences share content, return the
- * earliest deterministically; callers that care about a specific occurrence must use
- * its tuple_hash (process parent/custody migration will move those paths explicitly). */
+ * earliest deterministically. */
 export async function getAct(client: PgClient, contentHash: string): Promise<Receipt | null> {
   const row = await client.query<{ act: Receipt }>(
     "SELECT act FROM public.logline_acts WHERE content_hash=$1 ORDER BY inserted_at,tuple_hash LIMIT 1",
     [contentHash],
+  );
+  return row.rows[0]?.act ?? null;
+}
+
+/** Exact contextual occurrence lookup. Parent/custody links in receipt v1 use this domain. */
+export async function getTupleAct(client: PgClient, tupleHash: string): Promise<Receipt | null> {
+  const row = await client.query<{ act: Receipt }>(
+    "SELECT act FROM public.logline_acts WHERE tuple_hash=$1 LIMIT 1",
+    [tupleHash],
   );
   return row.rows[0]?.act ?? null;
 }
