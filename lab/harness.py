@@ -1,13 +1,15 @@
 """Santo André Lab Pack vector harness.
 
 This module is the production-local harness for the pack vectors kept under
-``tests/fixtures/santo-andre-vectors/``.  Vectors live in ``valid/``, ``invalid/``
-and ``ambiguous/`` directories whose names are the expected verdict.  The harness
-validates each vector's fixture envelope and applies pack-stage interpretation
-checks from the Lab Pack law set.  The checks intentionally run *after* foundation
-Canon in the source pack: this harness does not recompute LogLine receipt hashes;
-it verifies that the Lab runtime reads pack obligations without improvising routes
-or creating false greens.
+``tests/fixtures/santo-andre-vectors/``. Vectors live in ``valid/``, ``invalid/``
+and ``ambiguous/`` directories whose names are the expected verdict. The harness
+validates each vector's fixture shape and applies pack-stage interpretation checks
+from the Lab Pack law set.
+
+Routing law is intentionally aligned with LogLine v1.2 process custody: workflows
+publish ``start`` + ``nodes``; every node names ``activity``, ``responsible`` and
+``if_ok``/``if_doubt``/``if_not``; current work is a custody tuple. Historical
+``sent_to``/``next_if_*`` routing fields are rejected rather than silently adapted.
 """
 from __future__ import annotations
 
@@ -24,6 +26,17 @@ CANON_SLOTS = ("who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt"
 PACK_HASH_FIELDS = ("pack", "template", "workflow", "policy", "qualifier", "runtime", "run")
 VECTORS_DEFAULT = "tests/fixtures/santo-andre-vectors"
 VERDICTS = {"valid", "invalid", "ambiguous"}
+OUTCOMES = {"ok", "doubt", "not"}
+TERMINALS = {"stop", "close", "closed", "end"}
+LEGACY_ROUTING_KEYS = {
+    "sent_to",
+    "from_sent_to",
+    "next_if_ok",
+    "next_if_doubt",
+    "next_if_not",
+    "expected_next_sent_to",
+    "actual_next_sent_to",
+}
 
 
 @dataclass(frozen=True)
@@ -43,9 +56,9 @@ def is_zero_or_hash(value: Any) -> bool:
     return value == "0" or is_hash(value)
 
 
-def _transport(vector: dict[str, Any]) -> dict[str, Any]:
-    transport = vector.get("envelope", {}).get("transport", {})
-    return transport if isinstance(transport, dict) else {}
+def _custody(vector: dict[str, Any]) -> dict[str, Any]:
+    custody = vector.get("custody", {})
+    return custody if isinstance(custody, dict) else {}
 
 
 def _act_entries(vector: dict[str, Any]) -> list[dict[str, Any]]:
@@ -65,20 +78,45 @@ def _acts(vector: dict[str, Any]) -> list[dict[str, Any]]:
     return acts
 
 
-def _workflow_steps(vector: dict[str, Any]) -> list[dict[str, Any]]:
+def _workflow_nodes(vector: dict[str, Any]) -> dict[str, dict[str, Any]]:
     workflow = vector.get("workflow")
     if not isinstance(workflow, dict):
-        return []
-    steps = workflow.get("steps", [])
-    return [step for step in steps if isinstance(step, dict)]
+        return {}
+    nodes = workflow.get("nodes", {})
+    if not isinstance(nodes, dict):
+        return {}
+    return {str(node_id): node for node_id, node in nodes.items() if isinstance(node, dict)}
+
+
+def _legacy_routing_problems(vector: dict[str, Any]) -> list[str]:
+    problems: list[str] = []
+    envelope = vector.get("envelope")
+    if isinstance(envelope, dict):
+        transport = envelope.get("transport")
+        if isinstance(transport, dict):
+            for key in sorted(LEGACY_ROUTING_KEYS & set(transport)):
+                problems.append(f"legacy routing field forbidden: envelope.transport.{key}")
+
+    workflow = vector.get("workflow")
+    if isinstance(workflow, dict):
+        if "steps" in workflow:
+            problems.append("legacy workflow.steps forbidden: use workflow.nodes")
+        for node_id, node in _workflow_nodes(vector).items():
+            for key in sorted(LEGACY_ROUTING_KEYS & set(node)):
+                problems.append(f"legacy routing field forbidden: workflow.nodes.{node_id}.{key}")
+
+    routing = vector.get("routing")
+    if isinstance(routing, dict):
+        for key in sorted(LEGACY_ROUTING_KEYS & set(routing)):
+            problems.append(f"legacy routing field forbidden: routing.{key}")
+    return problems
 
 
 def build_registry(sources: list[VectorSource]) -> dict[str, set[str]]:
     """Build a fixture-local registry from vectors expected to be valid.
 
-    The seed vectors use placeholder hashes.  Rather than hard-code those hashes
-    in runtime code, the harness treats valid fixtures as the registered pack
-    universe and then checks invalid/ambiguous fixtures against that universe.
+    The seed vectors use placeholder hashes. Rather than hard-code those hashes in
+    runtime code, the harness treats valid fixtures as the registered pack universe.
     """
     registry = {field: set() for field in PACK_HASH_FIELDS if field != "run"}
     for source in sources:
@@ -92,12 +130,12 @@ def build_registry(sources: list[VectorSource]) -> dict[str, set[str]]:
         workflow = source.vector.get("workflow")
         if isinstance(workflow, dict) and is_hash(workflow.get("workflow")):
             registry["workflow"].add(workflow["workflow"])
-        for step in _workflow_steps(source.vector):
+        for node in _workflow_nodes(source.vector).values():
             mapped = {
-                "template": step.get("accepts_template"),
-                "policy": step.get("policy"),
-                "qualifier": step.get("qualifier"),
-                "runtime": step.get("runtime"),
+                "template": node.get("accepts_template"),
+                "policy": node.get("policy"),
+                "qualifier": node.get("qualifier"),
+                "runtime": node.get("runtime"),
             }
             for field, value in mapped.items():
                 if is_hash(value):
@@ -106,11 +144,7 @@ def build_registry(sources: list[VectorSource]) -> dict[str, set[str]]:
 
 
 def load_vector_sources(root: str | Path = VECTORS_DEFAULT) -> list[VectorSource]:
-    """Load vector JSON files with their source paths and verdict directories.
-
-    Each vector's parent directory name (``valid``/``invalid``/``ambiguous``) is its
-    expected verdict category.
-    """
+    """Load vector JSON files with their source paths and verdict directories."""
     sources: list[VectorSource] = []
     base = resource_path(str(root)) if str(root) == VECTORS_DEFAULT else Path(root)
     for path in sorted(base.rglob("*.json")):
@@ -140,6 +174,7 @@ def _schema_problems(source: VectorSource) -> list[str]:
         problems.append("vector must not carry both act and acts")
     if "act" not in vector and "acts" not in vector and "workflow" not in vector:
         problems.append("vector must carry act, acts, or workflow")
+    problems.extend(_legacy_routing_problems(vector))
     return problems
 
 
@@ -159,6 +194,85 @@ def _act_shape_problems(act: dict[str, Any]) -> list[str]:
     return problems
 
 
+def _workflow_problems(vector: dict[str, Any]) -> list[str]:
+    workflow = vector.get("workflow")
+    if not isinstance(workflow, dict):
+        return []
+    problems: list[str] = []
+    if not is_hash(workflow.get("workflow")):
+        problems.append("workflow id must be a hash")
+
+    nodes = _workflow_nodes(vector)
+    start = workflow.get("start")
+    if not isinstance(start, str) or not start:
+        problems.append("workflow start node is required")
+    elif start not in nodes:
+        problems.append("workflow start node must exist")
+    if not nodes:
+        problems.append("workflow nodes are required")
+        return problems
+
+    for node_id, node in nodes.items():
+        activity = node.get("activity")
+        responsible = node.get("responsible")
+        if not isinstance(activity, str) or not activity.strip():
+            problems.append(f"workflow node {node_id} activity is required")
+        if not isinstance(responsible, str) or not responsible.strip():
+            problems.append(f"workflow node {node_id} responsible is required")
+
+        if "accepts_template" in node and not is_hash(node.get("accepts_template")):
+            problems.append("workflow node accepts_template must cite a hash")
+        if "policy" in node and not is_hash(node.get("policy")):
+            problems.append("workflow node policy must cite a hash")
+        for field in ("qualifier", "runtime"):
+            if field in node and not is_zero_or_hash(node.get(field)):
+                problems.append(f"workflow node {field} must be 0 or a hash")
+
+        for outcome in sorted(OUTCOMES):
+            field = f"if_{outcome}"
+            target = node.get(field)
+            if not isinstance(target, str) or not target:
+                problems.append(f"workflow node {node_id} {field} is required")
+            elif target not in TERMINALS and target not in nodes:
+                problems.append(f"workflow node {node_id} {field} must name a defined node or terminal")
+
+    custody = _custody(vector)
+    node_id = custody.get("node")
+    responsible = custody.get("responsible")
+    if not isinstance(node_id, str) or not node_id:
+        problems.append("workflow custody.node is required")
+    elif node_id not in nodes:
+        problems.append("custody.node is off workflow graph")
+    elif responsible != nodes[node_id].get("responsible"):
+        problems.append("custody.responsible does not match current workflow node")
+
+    routing = vector.get("routing")
+    if isinstance(routing, dict):
+        route_node = routing.get("node")
+        outcome = routing.get("outcome")
+        if route_node not in nodes:
+            problems.append("routing.node must name a defined workflow node")
+        elif outcome not in OUTCOMES:
+            problems.append("routing.outcome must be ok, doubt, or not")
+        else:
+            selected = nodes[route_node].get(f"if_{outcome}")
+            expected_node = routing.get("expected_next_node")
+            actual_node = routing.get("actual_next_node")
+            if expected_node is not None and expected_node != selected:
+                problems.append("routing expected next node does not match deterministic branch")
+            if actual_node is not None and actual_node != selected:
+                problems.append("routing actual next node violates deterministic branch")
+            selected_node = nodes.get(str(selected)) if isinstance(selected, str) else None
+            selected_responsible = selected_node.get("responsible") if selected_node else None
+            expected_responsible = routing.get("expected_next_responsible")
+            actual_responsible = routing.get("actual_next_responsible")
+            if expected_responsible is not None and expected_responsible != selected_responsible:
+                problems.append("routing expected next responsible does not match selected node")
+            if actual_responsible is not None and actual_responsible != selected_responsible:
+                problems.append("routing actual next responsible violates deterministic custody")
+    return problems
+
+
 def judge_vector(source: VectorSource | dict[str, Any], registry: dict[str, set[str]] | None = None) -> dict[str, Any]:
     """Return a pack-stage verdict for a vector source or raw vector dict."""
     if isinstance(source, dict):
@@ -170,13 +284,12 @@ def judge_vector(source: VectorSource | dict[str, Any], registry: dict[str, set[
     entries = _act_entries(vector)
     acts = _acts(vector)
     roles = {entry.get("role") for entry in entries}
-    transport = _transport(vector)
+    custody = _custody(vector)
 
     if acts:
-        if not transport.get("sent_to"):
-            problems.append("missing transport.sent_to")
-        elif not is_hash(transport.get("sent_to")):
-            problems.append("transport.sent_to must cite a hash")
+        responsible = custody.get("responsible")
+        if not isinstance(responsible, str) or not responsible.strip():
+            problems.append("missing custody.responsible")
 
     for act in acts:
         problems.extend(_act_shape_problems(act))
@@ -200,21 +313,7 @@ def judge_vector(source: VectorSource | dict[str, Any], registry: dict[str, set[
         if act.get("type") == "card" and registry.get("template") and act.get("template") not in registry["template"]:
             problems.append("type field cannot be authority")
 
-    workflow = vector.get("workflow")
-    if isinstance(workflow, dict):
-        if not is_hash(workflow.get("workflow")):
-            problems.append("workflow id must be a hash")
-        for step in _workflow_steps(vector):
-            for field in ("accepts_template", "policy", "qualifier", "runtime", "from_sent_to", "next_if_ok", "next_if_doubt", "next_if_not"):
-                value = step.get(field)
-                ok = is_zero_or_hash(value) if field in {"qualifier", "runtime"} else is_hash(value)
-                if not ok:
-                    problems.append(f"workflow step {field} must cite a hash")
-        target = transport.get("sent_to")
-        if target:
-            legal = {step.get(k) for step in _workflow_steps(vector) for k in ("from_sent_to", "next_if_ok", "next_if_doubt", "next_if_not")}
-            if target not in legal:
-                problems.append("transport.sent_to is off workflow reel")
+    problems.extend(_workflow_problems(vector))
 
     refs = vector.get("references", {}) if isinstance(vector.get("references"), dict) else {}
     route_workflow = vector.get("route_workflow") or refs.get("route_workflow")
