@@ -1,5 +1,6 @@
 import { appendAct } from "./db";
 import type { PgClient } from "./db";
+import { ensureBootstrapVocabulary } from "./ledger-registry";
 import type { Receipt } from "./receipt";
 
 export type ContractSeed = {
@@ -22,6 +23,8 @@ export async function ensureRegisteredContract(
   append: typeof appendAct = appendAct,
 ): Promise<string | null> {
   if (!authority.trim()) return null;
+  await ensureBootstrapVocabulary(client, authority, append);
+
   const definition = seed.contract;
   const existing = await client.query<{ content_hash: string }>(
     `SELECT content_hash FROM public.logline_acts
