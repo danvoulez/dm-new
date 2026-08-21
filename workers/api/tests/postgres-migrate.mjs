@@ -10,16 +10,21 @@ const client = {
 };
 
 await migrateReceiptV1(client);
-assert.equal(calls.length, 1);
-const sql = calls[0];
+assert.equal(calls.length, 2);
+const identitySql = calls[0];
+const registrySql = calls[1];
 
-assert.match(sql, /drop constraint if exists runtime_queue_source_hash_fkey/i);
-assert.match(sql, /drop constraint if exists process_contracts_registered_hash_fkey/i);
-assert.match(sql, /primary key \(tuple_hash\)/i);
-assert.match(sql, /logline_acts_content_hash_idx/i);
-assert.match(sql, /logline\.receipt\.v0/i);
-assert.match(sql, /logline\.receipt\.v1/i);
-assert.match(sql, /- 'envelope'/i);
-assert.match(sql, /hashes'->>'envelope_hash' = envelope_hash/i);
+assert.match(identitySql, /drop constraint if exists runtime_queue_source_hash_fkey/i);
+assert.match(identitySql, /drop constraint if exists process_contracts_registered_hash_fkey/i);
+assert.match(identitySql, /primary key \(tuple_hash\)/i);
+assert.match(identitySql, /logline_acts_content_hash_idx/i);
+assert.match(identitySql, /logline\.receipt\.v0/i);
+assert.match(identitySql, /logline\.receipt\.v1/i);
+assert.match(identitySql, /- 'envelope'/i);
+assert.match(identitySql, /hashes'->>'envelope_hash' = envelope_hash/i);
+assert.match(registrySql, /current_process_types/i);
+assert.match(registrySql, /current_vocabulary/i);
+assert.match(registrySql, /did = 'defined_process_type'/i);
+assert.match(registrySql, /did = 'defined_vocabulary_term'/i);
 
-console.log("postgres receipt v1 migration: tuple occurrence PK + semantic content index pinned");
+console.log("postgres migration: receipt identity + ledger-native registry projections pinned");
