@@ -3,6 +3,7 @@ import { loadContracts } from "./contracts";
 import { appendAct, type PgClient } from "./db";
 import { evaluate } from "./evaluator";
 import { aboutSystem, searchLedger } from "./ledger-registry";
+import { routeProcessReceipt } from "./process-machine";
 import { registerFlow, registerResponse } from "./register-flow";
 import { receiverSelect } from "./runtime";
 import { SLOTS, type ActFields } from "./receipt";
@@ -64,6 +65,7 @@ export async function append(
     loadCatalog: loadContracts,
     evaluateReceipt: evaluate,
     selectReceiver: receiverSelect,
+    routeProcessReceipt,
   }, context);
   return registerResponse(outcome);
 }
