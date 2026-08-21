@@ -13,10 +13,22 @@ const seed = { process_id: "projection-build.v1", source_yml: "processes/project
     return { id: HASH };
   });
   assert.equal(result, HASH);
-  assert.equal(appended.length, 1);
-  assert.equal(appended[0].did, "registered_process_contract");
-  assert.equal("process_id" in appended[0], false);
-  assert.deepEqual(appended[0].contract, seed.contract);
+  assert.equal(appended.length, 4, "three bootstrap vocabulary Acts precede one type definition");
+  assert.deepEqual(appended.slice(0, 3).map((act) => act.did), [
+    "defined_vocabulary_term",
+    "defined_vocabulary_term",
+    "defined_vocabulary_term",
+  ]);
+  assert.deepEqual(appended.slice(0, 3).map((act) => act.definition.term), [
+    "defined_vocabulary_term",
+    "defined_process_type",
+    "opened_process",
+  ]);
+  assert.equal(appended[3].did, "defined_process_type");
+  assert.equal(appended[3].this, seed.process_id);
+  assert.equal("process_id" in appended[3], false);
+  assert.deepEqual(appended[3].definition, seed.contract);
+  assert.deepEqual(appended[3].envelope, {});
   assert.match(queries.at(-1)[0], /UPDATE public\.process_contracts SET registered_hash/);
 }
 
@@ -30,9 +42,9 @@ const seed = { process_id: "projection-build.v1", source_yml: "processes/project
   };
   const result = await ensureRegisteredContract(client, seed, "dan@powerfarm.app", async () => { appendCalls += 1; return { id: "b".repeat(64) }; });
   assert.equal(result, HASH);
-  assert.equal(appendCalls, 0);
+  assert.equal(appendCalls, 0, "bootstrap/type import is idempotent when matching Acts already exist");
 }
 
 assert.equal(await ensureRegisteredContract({}, seed, ""), null);
 
-console.log("worker contract registration: ok");
+console.log("worker contract registration: YAML emits bootstrap vocabulary + defined_process_type Acts");
