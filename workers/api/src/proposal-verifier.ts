@@ -1,4 +1,5 @@
 import type { PgClient } from "./db";
+import { verifyProcessProposal } from "./process-machine";
 import { SLOTS, type ActFields, type Envelope } from "./receipt";
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -190,6 +191,8 @@ export async function verifyProposal(
       checks.push("contract_hash_current");
     }
   }
+
+  checks.push(...await verifyProcessProposal(client, fields));
 
   return {
     ok: true,
