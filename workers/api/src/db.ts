@@ -25,7 +25,7 @@ export async function appendAct(client: PgClient, fields: ActFields): Promise<Re
   await client.query(
     `INSERT INTO public.logline_acts(content_hash, tuple_hash, receipt_version, act, envelope_hash)
      VALUES ($1,$2,$3,$4::jsonb,$5)
-     ON CONFLICT (content_hash) DO NOTHING`,
+     ON CONFLICT (tuple_hash) DO NOTHING`,
     [
       receipt.id,
       receipt.hashes.tuple_hash,
@@ -37,7 +37,13 @@ export async function appendAct(client: PgClient, fields: ActFields): Promise<Re
   return receipt;
 }
 
+/** Semantic lookup by content identity. If several occurrences share content, return the
+ * earliest deterministically; callers that care about a specific occurrence must use
+ * its tuple_hash (process parent/custody migration will move those paths explicitly). */
 export async function getAct(client: PgClient, contentHash: string): Promise<Receipt | null> {
-  const row = await client.query<{ act: Receipt }>("SELECT act FROM public.logline_acts WHERE content_hash=$1", [contentHash]);
+  const row = await client.query<{ act: Receipt }>(
+    "SELECT act FROM public.logline_acts WHERE content_hash=$1 ORDER BY inserted_at,tuple_hash LIMIT 1",
+    [contentHash],
+  );
   return row.rows[0]?.act ?? null;
 }
