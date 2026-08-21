@@ -2,52 +2,209 @@
 
 A **processual, ledger-backed institutional runtime**.
 
-The Lab exists to turn arrivals into governed consequence without letting memory,
-projections, models, adapters, or selectors silently become authority.
+The Lab turns authored proposals into governed consequence without letting models,
+projections, queues, adapters, or convenience APIs silently become authority.
 
-> Everything may register. Only complete records matching registered process contracts activate.
+> **Author semantics first. Verify before append. Append before consequence. Fail loud.**
 
-An arrival is remembered first. The evaluator decides whether a registered process
-contract permits movement. Selectors may queue work but cannot execute it. The executor
-revalidates and governs dispatch. Adapters are leaves. Every transition is another
-append-only receipt. Projections remain rebuildable. LLM and Dream Machine output remains
-proposal/candidate material until ordinary process law moves it.
+This repository follows **Product Specification v1.2**. The software release line remains
+pre-1.0; this release is **v0.3.0**.
 
-## What v0.2 does today
-
-The shipped runtime closes the Lab v0 spine:
+## The v1.2 spine
 
 ```text
-register
-  -> evaluate
-  -> receiver/clock select
-  -> rebuildable queue
-  -> executor governs
-  -> adapter acts
-  -> evidence checked
-  -> new closure receipt
-  -> projection visible
+proposal
+  -> verify
+  -> append
+  -> route / evaluate
+  -> effect
 ```
 
-It also supports a governed inference path:
+The order is load-bearing:
+
+1. **Proposal** — an LLM, person, process activity, importer, or other caller authors a
+   complete candidate Act.
+2. **Verify** — the kernel checks objective claims and structural invariants. It does not
+   invent missing semantics or silently repair authored content.
+3. **Append** — the verified Act becomes immutable ledger memory.
+4. **Route / evaluate** — deterministic process law decides whether the appended Act moves
+   current work.
+5. **Effect** — only then may a governed executor perform consequence.
+
+A weird but objectively valid Act is allowed to exist even when it triggers nothing.
+Validity and usefulness are different questions.
+
+## The Act
+
+A LogLine has exactly nine semantic slots:
 
 ```text
-inference request
-  -> executor
-  -> operator-registered model command
-  -> schema cage + citation check
-  -> llm.receipt
-  -> separate candidate Act
+who
+did
+this
+when
+confirmed_by
+if_ok
+if_doubt
+if_not
+status
 ```
 
-The model never receives authority from its output. A candidate cannot execute itself.
+The author also supplies `AUX` and an `envelope`. In the Dream boundary, the model authors
+all nine slots plus AUX and envelope. The backend verifies objective facts; it is not a
+semantic co-author.
 
-The package also contains the Dream Machine boundary, grant/authority controls for L4/L5,
-WebAuthn fail-closed support, the three-machine fleet registry, Foundation conformance
-corpora, Santo Andre pack vectors, migrations for `public.logline_acts`, and rebuildable
-projection machinery.
+**Actor is not the same thing as scribe.** `who` describes the actor in the proposition.
+The authenticated caller or model that wrote the record is a different fact.
 
-## Install
+## Receipt identity
+
+Receipt v1 separates semantic identity, envelope identity, and occurrence identity:
+
+```text
+content_hash  = H(JCS(LogLine 9 + AUX))
+envelope_hash = H(JCS(envelope))
+tuple_hash    = H(content_hash + envelope_hash)
+```
+
+`content_hash` identifies semantic content. `tuple_hash` identifies the concrete ledger
+occurrence, including process ancestry.
+
+Older receipt-v0 records remain readable for compatibility; new canonical writes use the
+v1 receipt model.
+
+## Ledger-native process types
+
+Process law is itself ledger data.
+
+Bootstrap Acts:
+
+```text
+defined_vocabulary_term
+defined_process_type
+opened_process
+```
+
+A process type is authored as a `defined_process_type` Act. Runtime discovery reads the
+ledger-native registry rather than treating mutable configuration as authority.
+
+Legacy YAML and `process_contracts` remain compatibility/import seams while migration is
+completed; they are not the canonical source of process truth.
+
+## Process identity and ancestry
+
+A process instance begins with an `opened_process` Act.
+
+- the opening Act's `content_hash` is the **process instance identity**;
+- the opening envelope does not self-reference the process;
+- every later Act sets `envelope.process` to that opening `content_hash`;
+- every later Act sets `envelope.parent` to the previous occurrence's `tuple_hash`.
+
+That gives immutable, exact ancestry without a mutable process-state blob.
+
+## Deterministic routing
+
+Process nodes carry:
+
+```text
+activity
+responsible
+if_ok
+if_doubt
+if_not
+```
+
+The dispatch outcome is the closed set:
+
+```text
+ok | doubt | not
+```
+
+The router reads the current node and follows the matching branch. It does not reinterpret
+or fabricate process semantics.
+
+## Current work and custody
+
+Current work is an ephemeral projection over the ledger, not authority.
+
+A custody item is identified by:
+
+```text
+process_instance
+node
+responsible
+source_tuple
+status
+```
+
+Claims, leases, attempts, and retry metadata are runtime coordination state. They may be
+reconstructed or discarded without changing ledger truth.
+
+Human/team custody remains visible work. `runtime.executor` custody can be claimed by the
+governed executor. Before acting, the executor re-projects the instance and refuses stale
+work.
+
+## Pure process state
+
+`processCurrentState(instance)` is a pure projection of immutable Acts.
+
+There is no authoritative mutable process blob. Current node, responsibility, openness,
+and ancestry are replayed from the ledger.
+
+## Dream / LLM membrane
+
+The canonical minimal tool surface is exactly:
+
+```text
+about
+search
+append
+```
+
+`about` explains the available ledger/process vocabulary. `search` retrieves citable
+ledger context. `append` submits a complete authored proposal through the canonical
+verify-before-append path.
+
+A model cannot give itself authority by emitting output. Model output remains authored
+proposal material until ordinary process law and executor safety rules move it.
+
+## Canonical HTTP surface
+
+The production Worker API lives under `workers/api/`.
+
+Core v1.2 routes:
+
+```text
+GET  /api/about
+GET  /api/search?q=...
+POST /api/append
+GET  /api/process-types
+GET  /api/processes
+GET  /api/now
+GET  /api/pendencies
+GET  /api/cases/{hash}
+```
+
+`POST /api/register` is **not** part of the canonical Worker API. Semantic writes go
+through `POST /api/append`.
+
+Dedicated control-plane routes remain for grants, WebAuthn, migration, process-type
+proposal/administration, chat, and explicit runtime advancement.
+
+See [`docs/API.md`](docs/API.md) for the current Worker contract and
+[`docs/UI_SPEC.md`](docs/UI_SPEC.md) for the human-interface rules.
+
+### Python compatibility surface
+
+The installable `dream-machine-lab` Python package still contains the earlier local
+reference API/CLI and compatibility runtime used by Foundation, Dream, fleet, harness,
+and migration tests. Some of that surface — including `lab/api.py` and older
+selector/runtime-queue terminology — is deliberately retained for historical and
+migration compatibility.
+
+Do not use that compatibility API to infer the canonical v1.2 Worker write contract.
+
+## Install the Python tooling
 
 ```bash
 pip install dream-machine-lab
@@ -59,215 +216,124 @@ Optional WebAuthn verification:
 pip install "dream-machine-lab[webauthn]"
 ```
 
-The wheel contains the runtime resources used by the CLI, so the conformance, Dream, fleet,
-and schema commands work **outside a source checkout**.
-
 From source:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e ".[webauthn]"
 ```
 
-## Verify the installed body
+## Verify the body
 
 ```bash
-lab doctor
+pytest -q
 lab foundation suite
-lab harness
 lab dream verify
-lab fleet audit
+lab harness
+lab fleet audit --root fleet
 ```
 
-`lab foundation suite` runs the upstream Node verifier over the packaged Foundation corpus.
-
-## First alive loop
-
-Use a disposable ledger while learning:
+Worker API:
 
 ```bash
-export LAB_DB="$PWD/lab-demo.sqlite"
-
-lab register \
-  --who human \
-  --did build_projection \
-  --this lab \
-  --confirmed_by human \
-  --if_ok projection-build.v1 \
-  --if_doubt attention-raise.v1 \
-  --if_not stop \
-  --status registered \
-  --data '{"projection_spec":"my_lab_state"}'
-
-lab receiver projection-build.v1
-lab executor run
-lab project verify
+cd workers/api
+npm ci --legacy-peer-deps
+npm run typecheck
+npm test
 ```
 
-The projection adapter does not write state itself. It returns a projection request; the
-governed executor materializes the non-authoritative projection and records its hash in the
-closure receipt.
-
-## Real model boundary
-
-Model commands are **operator configuration**, not receipt content. An Act may name a
-`model_id`; it cannot inject an executable command.
-
-Register a local model/membrane command:
+UI:
 
 ```bash
-lab model register my-local-model \
-  --command-json '["/absolute/path/to/model-bridge"]'
+cd ui
+npm ci
+npm run typecheck
+npm test
+npm run build
 ```
 
-Then register an inference request:
+Build the Python artifact:
 
 ```bash
-lab infer summarize \
-  --model my-local-model \
-  --schema summary.v1 \
-  --real-model \
-  --prompt-id summarize.v1 \
-  --input-json '{"message":"summarize this"}'
+python -m build
 ```
 
-The request is memory only until it moves through the normal runtime:
+The GitHub Actions **complete gate** runs all of the above classes of checks on pull
+requests and on `main`.
 
-```bash
-lab queue add <REQUEST_HASH> --process inference.v1 --adapter inference
-lab executor run
-```
+## Authority, grants, and effects
 
-A successful real invocation closes with an `llm.receipt` and registers the model output as
-a **separate `candidate.inference_output` Act**. Invalid JSON/schema/citations become a
-durable doubt rather than disappearing or silently executing.
+Dangerous work is still governed by registered authority and grant structure. L4/L5 work
+requires the appropriate grant and verified signoff. The executor, not the model or
+router, owns effect-time safety checks.
 
-External model bridges may be registered with `lab model register --external`; those calls
-fail closed unless the inference request explicitly carries `--allow-external-model`.
+Evidence obligations are checked before a governed activity is considered complete.
+Unknown activities, invalid grants, missing evidence, stale custody, and broken process
+ancestry fail loudly.
 
-`tools/reference_model.py` is only a deterministic acceptance fixture. It is not presented
-as an LLM.
+## Projections are not truth
 
-## Release acceptance
+Read models, UI summaries, search indexes, queues, and custody leases are projections or
+runtime coordination aids. They can accelerate understanding and execution, but they do
+not outrank the append-only ledger.
 
-From the source release:
-
-```bash
-scripts/acceptance.sh
-```
-
-This runs the public CLI through Foundation conformance, pack harness, Dream boundary, fleet
-audit, a real projection materialization, a real subprocess-model invocation, schema
-validation, separate candidate registration, and package-resource provenance verification.
-
-For a built wheel:
-
-```bash
-scripts/installed-smoke.sh dist/dream_machine_lab-0.2.0-py3-none-any.whl
-```
-
-That creates a clean virtualenv in a temporary directory, installs only the wheel, changes
-out of the repository, and repeats the installed runtime flow.
-
-## User interface surface
-
-The runtime had no callable surface but the CLI and the Python API, so no interface could
-exist. `lab api serve` is that surface — stdlib only, keeping the zero-dependency promise.
-
-```bash
-lab api serve                 # http://127.0.0.1:8787
-lab api serve --read-only     # every write endpoint returns 403
-```
-
-Registering is unconditional; activating is not. `POST /api/register` always appends and
-returns the receipt *and* the activation verdict as two separate facts, so an interface
-can say "registered" and "moving" — or "registered" and "waiting for X" — without ever
-fusing them into one success/failure boolean.
-
-The failure vocabulary is closed (27 reasons), and `lab/messages.py` carries a written
-pt-BR sentence and one action for each, served by `GET /api/vocabulary`. A test pins the
-catalog exhaustive against the runtime, so "never a generic error" survives contact with
-future changes.
-
-See [`docs/API.md`](docs/API.md) for the endpoint contract and
-[`docs/UI_SPEC.md`](docs/UI_SPEC.md) for the interface specification it serves.
-
-## Authority and grants from the CLI
-
-L4/L5 work needs a registered grant plus a verified passkey signoff. Both now have a
-command surface:
-
-```bash
-lab authority genesis dan@example.com
-lab authority enroll-authenticator dan@example.com --credential-id ... --public-key ... \
-    --rp-id example.com --origin https://example.com --by dan@example.com
-lab grant register --process worker-run.v1 --granted-by dan@example.com \
-    --granted-to marina --valid-until 2027-01-01T00:00:00Z --acu-limit 5 \
-    --timeout 60 --fs-scope /Lab/work --network-policy restricted
-lab grant signoff <GRANT_ID> --signer dan@example.com --credential "$ASSERTION_JSON"
-lab grant show <GRANT_ID>
-```
-
-`lab grant show` reports live standing — revoked, expired, signed off — because the grant
-record alone does not say whether it is usable.
-
-## Architecture
+The canonical authority relationship is:
 
 ```text
-arrival -> logline_acts (memory / authority)
+LLM / person / activity authors semantics
                 |
-             evaluate
+             verify
                 |
-       receiver / clock          selectors only
+        append-only ledger
                 |
-       runtime_queue             disposable projection
+      deterministic process replay
                 |
-             executor            governed dispatcher
+          custody projection
                 |
-             adapter             dumb leaf
+       governed executor
                 |
-     evidence + new receipt
-                |
-           projections           non-authoritative, rebuildable
+             effect
 ```
 
-### Load-bearing invariants
+## Release migration notes: v0.2.x -> v0.3.0
 
-- **Receipt mold** (`lab/receipt.py`): nine canonical string slots; `transport`, `result`, and
-  `evidence` forbidden at rest; RFC 8785 canonical bytes; `id` is the content hash.
-- **Append-only ledger** (`lab/store.py`, `migrations/`): generated slot/AUX columns and
-  blocked update/delete paths.
-- **Selectors do not execute** (`lab/runtime.py`): receiver and clock select/queue only.
-- **Executor governs consequence**: it re-evaluates before dispatch, materializes adapter
-  outputs, enforces evidence, and writes closure/doubt receipts.
-- **Authority is registered structure** (`lab/authority.py`, `lab/grants.py`): L4/L5 work
-  requires grants and verified passkey signoff.
-- **Projections are not truth** (`lab/projections.py`): rebuildable read models with input
-  hashes; dynamic projections require pinned model/prompt/params/seed metadata.
-- **Models propose** (`lab/inference.py`): model output is schema-caged and emitted as a
-  candidate; it cannot create direct consequence.
-- **Packaged resources have provenance**: `tools/sync_package_resources.py` produces the
-  wheel mirror and `lab/resources/MANIFEST.json` records source path, size, and SHA-256 for
-  every copied runtime resource.
+- Use receipt v1 identity: `content_hash`, `envelope_hash`, `tuple_hash`.
+- Do not treat `content_hash` alone as occurrence identity.
+- Use `opened_process` content hash as the process instance ID.
+- Use `envelope.parent` with the previous `tuple_hash`.
+- Use the closed outcome set `ok | doubt | not`.
+- Use node `responsible` and `if_ok` / `if_doubt` / `if_not`; legacy
+  `sent_to` / `next_if_*` is not canonical.
+- Use custody current work for canonical process execution.
+- Use `POST /api/append` for semantic Worker writes; `/api/register` was removed from the
+  canonical Worker surface.
+- Keep old `runtime_queue`, mutable contract catalogs, and the Python reference API only as
+  explicit migration/compatibility seams.
 
 ## Repository layout
 
 | Path | Purpose |
 |---|---|
-| `lab/` | runtime kernel and CLI |
-| `processes/` | process contracts and generated catalogs |
-| `migrations/` | PostgreSQL/Supabase canonical ledger DDL |
-| `schemas/llm/` | inference output schemas |
-| `prompts/` | registered prompt sources |
-| `fleet/` | three-machine body + resident service allowlist |
-| `tests/fixtures/` | Foundation, Dream Machine, and Santo Andre conformance corpora |
-| `lab/resources/` | generated release mirror with SHA-256 manifest |
-| `scripts/acceptance.sh` | source-level end-to-end release acceptance |
-| `scripts/installed-smoke.sh` | clean-wheel installation and behavior smoke |
+| `workers/api/` | canonical v1.2 Worker API, verifier, routing, custody, executor |
+| `ui/` | human interface consuming the Worker API |
+| `migrations/` | PostgreSQL ledger, registry, receipt-v1, process and custody DDL |
+| `schemas/` | canonical schemas, including LLM boundaries |
+| `processes/` | seed/import compatibility process material |
+| `lab/` | Python package, conformance tooling, compatibility runtime |
+| `tests/fixtures/` | Foundation, Dream Machine, and Santo André conformance corpora |
+| `docs/` | API, UI, operations, and design documentation |
+| `.github/workflows/ci.yml` | complete release gate |
 
-See `LAB FINAL SPEC v0.md` and `LAB FINAL IMPLEMENTATION SPEC v0.md` for the canon this
-release implements.
+## Versioning
+
+Two version axes coexist intentionally:
+
+- **Product Specification v1.2** — the architectural/product canon this repository is
+  converging on.
+- **Software release v0.3.0** — the pre-1.0 package/repository release.
+
+They are not interchangeable.
 
 ## License
 

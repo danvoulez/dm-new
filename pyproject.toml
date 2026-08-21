@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dream-machine-lab"
-version = "0.2.0"
-description = "A processual, ledger-backed runtime: register everything, activate only complete process-contract matches, and let consequence flow through a governed selector/executor tree."
+version = "0.3.0"
+description = "A processual, ledger-backed runtime with verify-before-append semantics, ledger-native process identity, deterministic custody routing, and governed effects."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -47,10 +47,10 @@ dependencies = []
 webauthn = ["webauthn>=2,<3"]
 
 [project.urls]
-Homepage = "https://github.com/danvoulez/dream-machine"
-Repository = "https://github.com/danvoulez/dream-machine"
-Issues = "https://github.com/danvoulez/dream-machine/issues"
-Changelog = "https://github.com/danvoulez/dream-machine/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/danvoulez/dm-new"
+Repository = "https://github.com/danvoulez/dm-new"
+Issues = "https://github.com/danvoulez/dm-new/issues"
+Changelog = "https://github.com/danvoulez/dm-new/blob/main/CHANGELOG.md"
 
 [project.scripts]
 lab = "lab.cli:main"
