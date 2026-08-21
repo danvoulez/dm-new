@@ -4,35 +4,53 @@
   "tests": [
     "law 13"
   ],
-  "reason": "A workflow step cites policy by a floating name instead of a declaration hash. pack/policy/workflow/template cite hashes; names live only in lenses.",
+  "reason": "A workflow node cites policy by a floating name instead of a declaration hash. pack/policy/workflow/template cite hashes; names live only in lenses.",
   "workflow": {
     "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
-    "steps": [
-      {
-        "name": "draft_candidate",
+    "start": "card-table",
+    "nodes": {
+      "card-table": {
+        "activity": "draft candidate",
+        "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         "accepts_template": "2222222222222222222222222222222222222222222222222222222222222222",
         "policy": "santo-andre.policy.card.v0",
         "qualifier": "0",
         "runtime": "0",
-        "from_sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        "next_if_ok": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-        "next_if_doubt": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-        "next_if_not": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        "if_ok": "gate-intake",
+        "if_doubt": "attention",
+        "if_not": "refused"
+      },
+      "gate-intake": {
+        "activity": "intake accepted candidate",
+        "responsible": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "if_ok": "stop",
+        "if_doubt": "attention",
+        "if_not": "refused"
+      },
+      "attention": {
+        "activity": "raise attention",
+        "responsible": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "if_ok": "stop",
+        "if_doubt": "stop",
+        "if_not": "stop"
+      },
+      "refused": {
+        "activity": "refuse candidate",
+        "responsible": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "if_ok": "stop",
+        "if_doubt": "stop",
+        "if_not": "stop"
       }
-    ]
-  },
-  "envelope": {
-    "transport": {
-      "sent_by": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "sent_to": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      "sent_at": "2026-06-15T03:00:00Z",
-      "channel": "pack-vector"
     }
+  },
+  "custody": {
+    "node": "card-table",
+    "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
   },
   "act": {
     "who": "dan",
     "did": "played",
-    "this": "valid except the workflow step names its policy instead of hashing it",
+    "this": "valid except the workflow node names its policy instead of hashing it",
     "when": "2026-06-15T03:00:00Z",
     "confirmed_by": "pack-vector",
     "if_ok": "proceed",
