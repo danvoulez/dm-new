@@ -49,7 +49,7 @@ const custody = [];
 let tick = 0;
 const client = {
   async query(sql, params = []) {
-    if (sql.includes("FROM public.current_process_types") && sql.includes("registered_hash=$1")) {
+    if (sql.includes("did='defined_process_type'") && sql.includes("content_hash=$1")) {
       return params[0] === TYPE_HASH
         ? { rows: [{ process_id: definition.process_id, registered_hash: TYPE_HASH, definition }] }
         : { rows: [] };
@@ -65,7 +65,7 @@ const client = {
     }
     if (sql.includes("act->'envelope'->>'process'=$1")) {
       const rows = ledger
-        .filter((item) => item.content_hash === params[0] && item.act.did === "opened_process"
+        .filter((item) => (item.content_hash === params[0] && item.act.did === "opened_process")
           || item.act.envelope?.process === params[0])
         .sort((a, b) => a.inserted_at.localeCompare(b.inserted_at) || a.tuple_hash.localeCompare(b.tuple_hash));
       return { rows };
@@ -203,4 +203,4 @@ const projected = await processCurrentState(client, opening.id);
 assert.equal(projected.status, "closed");
 assert.equal(projected.current_tuple, finalDispatch.hashes.tuple_hash);
 
-console.log("process machine: opening identity + tuple ancestry + deterministic custody routing pinned");
+console.log("process machine: immutable type version + opening identity + tuple ancestry + deterministic custody routing pinned");
