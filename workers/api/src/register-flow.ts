@@ -39,6 +39,35 @@ export type RegisterFlowDeps = {
   routeProcessReceipt?: (client: PgClient, receipt: Receipt) => Promise<unknown>;
 };
 
+function routeObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+/**
+ * A non-null process route means the custody engine recognized and owns this Act's
+ * consequence path. Do not ask the legacy evaluator to reinterpret it afterwards.
+ */
+function custodyDecision(route: unknown): Evaluation | null {
+  const processRoute = routeObject(route);
+  const state = routeObject(processRoute?.state);
+  if (!state) return null;
+  const custody = routeObject(processRoute?.custody);
+  const open = state.status === "open";
+  return {
+    activate: open,
+    matched: true,
+    reason: open ? "process_custody_routed" : "process_closed",
+    process_id: typeof state.process_id === "string" ? state.process_id : null,
+    adapter: null,
+    missing_slots: [],
+    missing_aux: [],
+    registration_state: "registered",
+    activation_state: open ? "custody" : "closed",
+    queueable: Boolean(custody),
+    process_state: state,
+  };
+}
+
 /**
  * Authoritative v1.2 register pipeline:
  * proposal -> objective verify -> append -> route/evaluate -> effect.
@@ -46,6 +75,10 @@ export type RegisterFlowDeps = {
  * Verification failure happens before persistence and is fail-loud. Once append
  * succeeds, the receipt is immutable even if consequence derivation/runtime later
  * fails; callers may report that separate post-append failure without rewriting the Act.
+ *
+ * Custody routing has consequence precedence for migrated process types. The legacy
+ * process_id/evaluator path is a compatibility fallback only when routeProcessReceipt
+ * returns no recognized process state.
  */
 export async function registerFlow(
   client: PgClient,
@@ -56,6 +89,21 @@ export async function registerFlow(
   const verification = await (deps.verifyProposal ?? verifyProposal)(client, fields, context);
   const receipt = await deps.append(client, fields);
   try {
+    const processRoute = deps.routeProcessReceipt
+      ? await deps.routeProcessReceipt(client, receipt)
+      : undefined;
+    const routedDecision = custodyDecision(processRoute);
+    if (routedDecision) {
+      const processRouteObject = routeObject(processRoute);
+      return {
+        verification,
+        receipt,
+        decision: routedDecision,
+        queued: Boolean(routeObject(processRouteObject?.custody)),
+        process_route: processRoute,
+      };
+    }
+
     const catalog = await deps.loadCatalog(client);
     let decision = deps.evaluateReceipt(receipt, catalog);
     let queued = false;
@@ -70,10 +118,6 @@ export async function registerFlow(
       }
     }
 
-    const processRoute = deps.routeProcessReceipt
-      ? await deps.routeProcessReceipt(client, receipt)
-      : undefined;
-
     return {
       verification,
       receipt,
@@ -84,10 +128,6 @@ export async function registerFlow(
   } catch (error) {
     throw new RegisterActivationError(receipt, error);
   }
-}
-
-function routeObject(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 }
 
 export function registerResponse(outcome: RegisterOutcome) {
