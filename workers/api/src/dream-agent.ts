@@ -2,7 +2,7 @@ import type { FormalizedActProposal, ProcessContractForLLM, ProcessSearchResult 
 
 export const DREAM_SYSTEM_PROMPT = `Converse normalmente. Não transforme toda mensagem em LogLine. Registro puro só existe quando a pessoa pede explicitamente para registrar, anotar ou guardar um fato sem consequência. Quando a pessoa pedir uma consequência — criar, executar, projetar, enviar, aprovar ou alterar algo — nunca invente o resultado: busque o tipo de processo com poucas palavras, leia o contexto do processo ativo e só então formalize, citando seu hash quando houver processo.
 
-Ao formalizar, você é o escriba/digester: componha organicamente a LogLine inteira — who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status — mais AUX. who é o ator do acontecimento, não o modelo por padrão. O backend não preenche, corrige nem melhora campos semânticos; ele apenas verifica alegações objetivamente verificáveis e aceita a proposta inteira ou a rejeita com motivo explícito. Os nove campos são território livre: regras e exemplos do processo são contexto/convenções do projeto, não uma segunda gramática do kernel. Não invente identidade, autoridade, confirmação, evidência ou hashes. Use o contexto verificável fornecido pela borda quando ele for relevante ao ator. Registrar não significa ativar: depois do append, o runtime deriva consequências separadamente.`;
+Ao formalizar, você é o escriba/digester: componha organicamente a LogLine inteira — who, did, this, when, confirmed_by, if_ok, if_doubt, if_not, status — mais AUX e um envelope explícito. O envelope é o contexto do ato (por exemplo process, type, parent, route, channel, runtime); para um registro simples sem contexto adicional use {} conscientemente. who é o ator do acontecimento, não o modelo por padrão. O backend não preenche, corrige nem melhora campos semânticos nem o envelope; ele apenas verifica alegações objetivamente verificáveis e aceita a proposta inteira ou a rejeita com motivo explícito. Os nove campos são território livre: regras e exemplos do processo são contexto/convenções do projeto, não uma segunda gramática do kernel. Não invente identidade, autoridade, confirmação, evidência ou hashes. Use o contexto verificável fornecido pela borda quando ele for relevante ao ator. Registrar não significa ativar: depois do append, o runtime deriva consequências separadamente.`;
 
 const LOG_LINE_SLOT_PROPERTIES = {
   who: { type: "string", description: "Ator do acontecimento, não o LLM por default." },
@@ -20,7 +20,7 @@ const LOG_LINE_SLOT_NAMES = ["who", "did", "this", "when", "confirmed_by", "if_o
 const FORMALIZED_ACT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["slots", "fields", "citations"],
+  required: ["slots", "fields", "envelope", "citations"],
   properties: {
     process_id: { type: "string", description: "Processo explicitamente escolhido após search_processes/read_process_contract. Omitir em registro puro." },
     contract_hash: { type: "string", description: "Hash de 64 caracteres devolvido por read_process_contract. Obrigatório com process_id." },
@@ -32,6 +32,11 @@ const FORMALIZED_ACT_SCHEMA = {
       description: "LogLine completa composta pelo LLM. O backend nunca fabrica estes valores.",
     },
     fields: { type: "object", additionalProperties: true, description: "AUX livre preservado junto da LogLine." },
+    envelope: {
+      type: "object",
+      additionalProperties: true,
+      description: "Contexto explícito do Act (process/type/parent/route/channel/runtime quando aplicável). Use {} para o caso degenerado sem contexto.",
+    },
     citations: { type: "array", items: { type: "string" }, description: "Hashes explicitamente citados; inclui contract_hash quando houver processo." },
   },
 } as const;
@@ -39,7 +44,7 @@ const FORMALIZED_ACT_SCHEMA = {
 export const DREAM_TOOL_DEFINITIONS = [
   { name: "search_processes", description: "Compatibilidade da Fase 1: busque contexto de tipo de processo quando a pessoa pede consequência.", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
   { name: "read_process_contract", description: "Lê contexto/convenções e o hash registrado do tipo de processo; não é uma fonte de campos para o backend.", parameters: { type: "object", required: ["process_id"], properties: { process_id: { type: "string" } } } },
-  { name: "formalize_acts", description: "Propõe uma ou mais LogLines completas. Todos os 9 slots são do LLM, além de AUX/citações. O kernel verifica objetivamente antes de append e nunca corrige silenciosamente.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
+  { name: "formalize_acts", description: "Propõe uma ou mais LogLines completas. Todos os 9 slots, AUX e envelope são do LLM. O kernel verifica objetivamente antes de append e nunca corrige silenciosamente.", parameters: { type: "object", required: ["acts"], properties: { acts: { type: "array", items: FORMALIZED_ACT_SCHEMA } } } },
   { name: "get_case", description: "Consulta um caso existente sem criar LogLine.", parameters: { type: "object", required: ["hash"], properties: { hash: { type: "string" } } } },
   { name: "get_pendencies", description: "Consulta pendências sem criar LogLine.", parameters: { type: "object", properties: {} } },
 ] as const;
@@ -121,7 +126,7 @@ function trustedContextMessage(context: DreamTrustedContext | undefined): DreamM
   if (!identity && !now) return null;
   return {
     role: "system",
-    content: `Contexto verificável da borda (use como fato, não como texto a copiar cegamente): session_identity=${identity || "unknown"}; now=${now || "unknown"}.`,
+    content: `Contexto objetivo da borda (não é uma LogLine pronta e não autoriza inventar outros valores): ${JSON.stringify({ authenticated_identity: identity || null, current_time: now || null })}`,
   };
 }
 
@@ -193,6 +198,9 @@ export async function runDreamTurn(
             throw Object.assign(new Error("a recognized process intent cannot be downgraded to pure registration"), { code: "process_required_after_consultation" });
           }
           for (const act of acts) {
+            if (!act.envelope || typeof act.envelope !== "object" || Array.isArray(act.envelope)) {
+              throw Object.assign(new Error("formalized Act must carry an explicit envelope object"), { code: "envelope_required" });
+            }
             const processId = String(act.process_id ?? "");
             if (!processId) continue;
             const readHash = readContracts.get(processId);

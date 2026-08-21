@@ -38,6 +38,10 @@ function processTuple(overrides = {}) {
   });
 }
 
+function pureProposal(overrides = {}) {
+  return { slots: pureTuple(), fields: {}, envelope: {}, citations: [], ...overrides };
+}
+
 function scripted(responses) {
   const requests = [];
   return {
@@ -109,15 +113,17 @@ function createHarness(model) {
   assert.equal(h.ledger.length, 0);
 }
 
-// 2. Registro simples: a tupla inteira vem do LLM, recebe hash e fica inert.
+// 2. Registro simples: tupla+AUX+envelope vêm do LLM, recebe hash e fica inert.
 {
-  const proposal = { slots: pureTuple(), fields: { free_project_note: "kept" }, citations: [] };
+  const proposal = pureProposal({ fields: { free_project_note: "kept" } });
   const h = createHarness(scripted([formalizeCall([proposal])]));
   const result = await runDreamTurn({ message: "registre que Q3 fechou", conversation_id: "conv_e2e_02" }, h.deps);
   assert.equal(result.registrations.length, 1);
   assert.equal(h.ledger[0].decision.activation_state, "inert");
   assert.equal(h.ledger[0].receipt.process_id, undefined);
   assert.equal(h.ledger[0].receipt.free_project_note, "kept");
+  assert.deepEqual(h.ledger[0].receipt.envelope, {});
+  assert.equal(h.ledger[0].receipt.receipt_version, "logline.receipt.v1");
   assert.deepEqual(
     Object.fromEntries(Object.keys(proposal.slots).map((slot) => [slot, h.ledger[0].receipt[slot]])),
     proposal.slots,
@@ -125,13 +131,14 @@ function createHarness(model) {
   assert.equal(h.queue.length, 0);
 }
 
-// 3. Processo correto: consulta, cita o contrato e só depois o runtime deriva consequência.
+// 3. Processo correto: consulta, cita contrato, preserva envelope; runtime deriva consequência.
 {
   const proposal = {
     process_id: contract.process_id,
     contract_hash: CONTRACT_HASH,
     slots: processTuple(),
     fields: { projection_spec: "resumo Q3" },
+    envelope: { type: CONTRACT_HASH, channel: "chat" },
     citations: [CONTRACT_HASH],
   };
   const model = scripted([
@@ -143,6 +150,7 @@ function createHarness(model) {
   await runDreamTurn({ message: "crie uma projeção do Q3", conversation_id: "conv_e2e_03" }, h.deps);
   assert.deepEqual(h.calls.map(([name]) => name), ["search_processes", "read_process_contract", "formalize_acts"]);
   assert.deepEqual(h.ledger[0].receipt.citations, [CONTRACT_HASH]);
+  assert.deepEqual(h.ledger[0].receipt.envelope, proposal.envelope);
   assert.equal(h.ledger[0].decision.activation_state, "ativável");
   assert.equal(h.queue.length, 1);
 }
@@ -154,6 +162,7 @@ function createHarness(model) {
     contract_hash: CONTRACT_HASH,
     slots: processTuple({ did: "registered" }),
     fields: { projection_spec: "resumo Q3" },
+    envelope: { type: CONTRACT_HASH },
     citations: [CONTRACT_HASH],
   };
   const h = createHarness(scripted([
@@ -174,6 +183,7 @@ function createHarness(model) {
     contract_hash: CONTRACT_HASH,
     slots: processTuple(),
     fields: {},
+    envelope: { type: CONTRACT_HASH },
     citations: [CONTRACT_HASH],
   };
   const h = createHarness(scripted([
@@ -189,8 +199,8 @@ function createHarness(model) {
 // 6. Dois fatos são dois Acts e dois hashes.
 {
   const proposals = [
-    { slots: pureTuple({ this: "Q3 fechou" }), fields: {}, citations: [] },
-    { slots: pureTuple({ this: "Q4 abriu" }), fields: {}, citations: [] },
+    pureProposal({ slots: pureTuple({ this: "Q3 fechou" }) }),
+    pureProposal({ slots: pureTuple({ this: "Q4 abriu" }) }),
   ];
   const h = createHarness(scripted([formalizeCall(proposals)]));
   await runDreamTurn({ message: "registre os dois fatos", conversation_id: "conv_e2e_06" }, h.deps);
@@ -198,14 +208,14 @@ function createHarness(model) {
   assert.equal(new Set(h.ledger.map(({ receipt }) => receipt.id)).size, 2);
 }
 
-// 7. Correção é um novo Act que cita o anterior; nunca reescreve o hash anterior.
+// 7. Correção é novo Act que cita o anterior; nunca reescreve o hash anterior.
 {
-  const prior = await mintReceipt(assembleAct({ slots: pureTuple({ this: "era Q3" }), fields: {}, citations: [] }));
-  const correction = {
+  const prior = await mintReceipt(assembleAct(pureProposal({ slots: pureTuple({ this: "era Q3" }) })));
+  const correction = pureProposal({
     slots: pureTuple({ this: "era Q4" }),
     fields: { corrects: prior.id },
     citations: [prior.id],
-  };
+  });
   const h = createHarness(scripted([formalizeCall([correction])]));
   await runDreamTurn({ message: "corrija: era Q4", conversation_id: "conv_e2e_07" }, h.deps);
   assert.notEqual(h.ledger[0].receipt.id, prior.id);
@@ -213,4 +223,4 @@ function createHarness(model) {
   assert.deepEqual(h.ledger[0].receipt.citations, [prior.id]);
 }
 
-console.log("conversation ingress e2e: 7 cases on complete LLM-authored tuples");
+console.log("conversation ingress e2e: 7 cases on complete LLM-authored tuples + envelopes");

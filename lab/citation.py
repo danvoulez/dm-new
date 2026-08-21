@@ -2,33 +2,25 @@
 
 A content hash proves *integrity*, not *reference*. When receipt B wants to point at
 receipt A — "this result closes that wake", "this candidate descends from that
-question" — it must say **which hash of A it is binding to**, because the choice carries
-different meaning and different tamper surface:
+question" — it must say **which identity of A it is binding to**, because v1 separates
+semantic content from process/envelope context:
 
-  * ``content_hash`` — A's full identity including AUX. The citation breaks if *anything*
-    in A changes. Use when you mean "this exact Act, byte-for-byte" (the default and
-    strongest binding; A's ``id`` equals its ``content_hash``).
-  * ``tuple_hash`` — only A's nine invariant slots. The citation survives AUX edits to A
-    but breaks if any slot changes. Use when you mean "the act A asserted" independent of
-    incidental metadata. (A re-mint of A with different AUX still satisfies the citation.)
+  * ``content_hash`` — A's semantic identity: the nine LogLine fields plus AUX. The
+    citation survives moving the exact same semantic Act into a different envelope, but
+    breaks if a slot or AUX changes. A's ``id`` equals this hash.
+  * ``tuple_hash`` — A's exact ledger occurrence/context: ``H(content_hash +
+    envelope_hash)``. It breaks if either semantic content or envelope changes. Use this
+    when you mean "this occurrence of A in this process/custody context".
   * ``process_contract_hash`` — not a hash *of A* but of the process contract A activated
-    under, carried as an AUX field on A. Use when you cite "the rule A ran under", e.g.
-    an audit binding a result to the exact contract version. The cited receipt must
-    actually carry that AUX field, and it must match.
-  * ``result_hash`` — A's AUX ``result_hash`` field: the content hash of the *result act*
-    A produced. Use when you cite "what A concluded" rather than A itself. Same AUX rules.
+    under, carried as an AUX field on A. Use when you cite "the rule A ran under".
+  * ``result_hash`` — A's AUX ``result_hash`` field: the content hash of the result Act A
+    produced. Use when you cite "what A concluded" rather than A itself.
   * ``bundle`` — a Merkle/DAG bundle over an ordered list of (kind, hash) leaves. Use when
-    one citation must bind several receipts at once (a DAG of antecedents). The bundle
-    hash is the JCS hash of the canonical leaf list; tampering with any leaf, its kind, or
-    the order changes the bundle hash.
+    one citation must bind several receipts at once. The bundle hash is the JCS hash of
+    the canonical leaf list; tampering with any leaf, its kind, or order changes it.
 
-This module is deliberately *additive*: a citation is an ordinary AUX record. It never
-touches the nine invariant slots — those remain the receipt's runtime anatomy. A citing
-receipt simply carries a ``citation`` AUX object (or a ``citations`` list / ``bundle``),
-and minting binds it into the citing receipt's own ``content_hash`` like any other AUX.
-So a tampered citation is caught twice: ``validate_citation`` rejects it against the cited
-receipt here, and the citing receipt's content hash would not reproduce if the AUX were
-altered after minting (``receipt.verify``).
+A citation is ordinary AUX. Minting therefore binds it into the citing Act's own
+``content_hash``. Envelope/context remains an orthogonal identity layer.
 """
 from __future__ import annotations
 
@@ -40,10 +32,9 @@ from .receipt import canonical_json, mint, sha256_text, verify_or_raise
 
 # The explicit, closed vocabulary of single-target citation kinds. Adding a kind is a
 # deliberate spec act, not an accident: an unknown kind is rejected rather than silently
-# trusted. ``content_hash``/``tuple_hash`` are hashes *of* the cited receipt;
-# ``process_contract_hash``/``result_hash`` are AUX fields the cited receipt must carry.
+# trusted. content_hash names semantic Act identity; tuple_hash names the exact contextual
+# occurrence. AUX-resident kinds name explicit semantic references carried by the Act.
 DIRECT_KINDS = ("content_hash", "tuple_hash", "process_contract_hash", "result_hash")
-# AUX-resident kinds are read from the cited receipt's body, not recomputed from its slots.
 _AUX_KINDS = {"process_contract_hash", "result_hash"}
 BUNDLE_KIND = "bundle"
 CITATION_VERSION = "logline.citation.v0"
@@ -135,9 +126,9 @@ def make_bundle_citation(cited: Sequence[Mapping[str, Any]], kinds: Sequence[str
 def cite(fields: Mapping[str, Any], cited: Mapping[str, Any], kind: str = "content_hash") -> dict[str, Any]:
     """Mint a citing receipt: ``fields`` plus a ``citation`` AUX binding to ``cited``.
 
-    The nine slots come from ``fields`` untouched; the citation rides as additive AUX, so
-    it is bound into the citing receipt's own ``content_hash`` (any later edit to the
-    citation breaks ``receipt.verify``). ``fields`` must not already carry a ``citation``.
+    The nine slots and envelope come from ``fields`` untouched; citation rides as additive
+    AUX and is therefore bound into the citing receipt's semantic ``content_hash``.
+    ``fields`` must not already carry a ``citation``.
     """
     if "citation" in fields:
         raise ReceiptError("fields already carry a citation")
@@ -149,9 +140,7 @@ def validate_citation(citation: Mapping[str, Any], cited: Mapping[str, Any]) -> 
     """Raise ``ReceiptError`` unless ``citation`` correctly binds to ``cited``.
 
     Validation is total: the cited receipt must verify, the citation must name a known
-    kind, and the recorded hash must reproduce from the cited receipt under that kind. Any
-    tamper — a flipped ``cited_hash``, a swapped ``kind``, an edited cited slot/AUX, a
-    mutated bundle leaf or reordered leaves — is caught here.
+    kind, and the recorded hash must reproduce from the cited receipt under that kind.
     """
     if citation.get("citation_version") != CITATION_VERSION:
         raise ReceiptError("unsupported citation_version")
@@ -173,7 +162,7 @@ def validate_bundle_citation(citation: Mapping[str, Any], cited: Sequence[Mappin
     ``cited`` must be the receipts in the same order as the bundle leaves. Each leaf is
     re-derived from its cited receipt under the leaf's kind, the bundle hash is recomputed,
     and both the per-leaf hashes and the recomputed bundle hash must match what the citation
-    recorded — so a tampered leaf, a reordered DAG, or a forged bundle hash all fail.
+    recorded.
     """
     if citation.get("citation_version") != CITATION_VERSION:
         raise ReceiptError("unsupported citation_version")

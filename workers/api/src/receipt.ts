@@ -11,8 +11,10 @@ export const SLOTS = [
 ] as const;
 
 export type Slot = (typeof SLOTS)[number];
-export type ActFields = Record<string, unknown>;
-export type Receipt = Record<string, unknown> & {
+export type Envelope = Record<string, unknown>;
+export type ActFields = Record<string, unknown> & { envelope?: Envelope };
+
+export type ReceiptV0 = Record<string, unknown> & {
   id: string;
   receipt_version: "logline.receipt.v0";
   json_canonicalization: "jcs-rfc8785";
@@ -23,7 +25,22 @@ export type Receipt = Record<string, unknown> & {
   };
 };
 
-const SYSTEM_FIELDS = new Set(["id", "receipt_version", "json_canonicalization", "hashes"]);
+export type ReceiptV1 = Record<string, unknown> & {
+  id: string;
+  receipt_version: "logline.receipt.v1";
+  json_canonicalization: "jcs-rfc8785";
+  envelope: Envelope;
+  hashes: {
+    tuple_hash: string;
+    content_hash: string;
+    envelope_hash: string;
+    algorithm: "sha256";
+  };
+};
+
+export type Receipt = ReceiptV0 | ReceiptV1;
+
+const SYSTEM_FIELDS = new Set(["id", "receipt_version", "json_canonicalization", "hashes", "envelope"]);
 const FORBIDDEN = new Set(["result", "evidence", "transport"]);
 
 function assertValidString(value: string): void {
@@ -86,9 +103,54 @@ function validateInputFields(fields: ActFields): void {
       throw new Error(`receipt slot ${slot} must be a string`);
     }
   }
+  if ("envelope" in fields && (fields.envelope === null || typeof fields.envelope !== "object" || Array.isArray(fields.envelope))) {
+    throw new Error("envelope must be a JSON object");
+  }
 }
 
-export async function mintReceipt(input: ActFields): Promise<Receipt> {
+function contentMaterial(input: ActFields): Record<string, unknown> {
+  const content: Record<string, unknown> = {};
+  for (const slot of SLOTS) content[slot] = typeof input[slot] === "string" ? input[slot] : "";
+  for (const [key, value] of Object.entries(input)) {
+    if (!SLOTS.includes(key as Slot) && !SYSTEM_FIELDS.has(key) && !FORBIDDEN.has(key)) content[key] = value;
+  }
+  return content;
+}
+
+/**
+ * Mint the canonical v1 universal unit.
+ *
+ * content_hash  = H(JCS(LogLine 9 fields + AUX))
+ * envelope_hash = H(JCS(envelope))
+ * tuple_hash    = H(content_hash + envelope_hash)
+ *
+ * Receipt metadata is intentionally outside content identity. `envelope` is persisted
+ * with the receipt so the contextual half of tuple identity can always be replayed.
+ */
+export async function mintReceipt(input: ActFields): Promise<ReceiptV1> {
+  validateInputFields(input);
+  const content = contentMaterial(input);
+  const envelope: Envelope = input.envelope ? { ...input.envelope } : {};
+  const contentHash = await sha256Hex(canonicalJson(content));
+  const envelopeHash = await sha256Hex(canonicalJson(envelope));
+  const tupleHash = await sha256Hex(`${contentHash}${envelopeHash}`);
+  return {
+    ...content,
+    envelope,
+    receipt_version: "logline.receipt.v1",
+    json_canonicalization: "jcs-rfc8785",
+    hashes: {
+      tuple_hash: tupleHash,
+      content_hash: contentHash,
+      envelope_hash: envelopeHash,
+      algorithm: "sha256",
+    },
+    id: contentHash,
+  } as ReceiptV1;
+}
+
+/** Historical v0 minting retained only for parity/verification of existing ledger data. */
+export async function mintReceiptV0(input: ActFields): Promise<ReceiptV0> {
   validateInputFields(input);
   const receipt: Record<string, unknown> = {};
   for (const slot of SLOTS) receipt[slot] = typeof input[slot] === "string" ? input[slot] : "";
@@ -100,10 +162,10 @@ export async function mintReceipt(input: ActFields): Promise<Receipt> {
   }
 
   const tupleMaterial = Object.fromEntries(SLOTS.map((slot) => [slot, receipt[slot]]));
-  const contentMaterial = Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== "id" && key !== "hashes"));
+  const legacyContentMaterial = Object.fromEntries(Object.entries(receipt).filter(([key]) => key !== "id" && key !== "hashes"));
   const tupleHash = await sha256Hex(canonicalJson(tupleMaterial));
-  const contentHash = await sha256Hex(canonicalJson(contentMaterial));
+  const contentHash = await sha256Hex(canonicalJson(legacyContentMaterial));
   receipt.hashes = { tuple_hash: tupleHash, content_hash: contentHash, algorithm: "sha256" };
   receipt.id = contentHash;
-  return receipt as Receipt;
+  return receipt as ReceiptV0;
 }

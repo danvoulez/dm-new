@@ -74,12 +74,17 @@ export async function registerFlow(
 
 export function registerResponse(outcome: RegisterOutcome) {
   const { verification, receipt, decision, queued } = outcome;
+  const envelopeHash = "envelope_hash" in receipt.hashes ? receipt.hashes.envelope_hash : null;
   const response: Record<string, unknown> = {
     verified: true,
     verification_checks: verification.checks,
     registered: true,
     id: receipt.id,
+    content_hash: receipt.hashes.content_hash,
+    tuple_hash: receipt.hashes.tuple_hash,
+    envelope_hash: envelopeHash,
     fingerprint: receipt.id.slice(0, 8),
+    tuple_fingerprint: receipt.hashes.tuple_hash.slice(0, 8),
     activated: !!decision.activate,
     process_id: decision.process_id ?? null,
     queued,

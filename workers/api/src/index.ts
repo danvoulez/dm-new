@@ -15,6 +15,7 @@ import { SEED_CONTRACTS } from "./seed-contracts";
 import { createEnrollmentOptions, createSignOptions, verifyEnrollment, verifyGrantSignoff } from "./webauthn";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { fetchModelCatalog } from "./model-catalog";
+import { migrateReceiptV1 } from "./postgres-migrate";
 
 export type Env = {
   HYPERDRIVE: Hyperdrive;
@@ -275,6 +276,7 @@ app.post("/api/migrate", async (c) => {
         );
         create index if not exists runtime_queue_status_idx on public.runtime_queue(status,created_at);
       `);
+      await migrateReceiptV1(client);
       for (const seed of SEED_CONTRACTS) {
         await client.query(
           `INSERT INTO public.process_contracts(process_id,title,contract,status,source_yml)

@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 from lab.foundation import verify_engine_receipt, verify_foundation_suite
-from lab.receipt import mint
+from lab.receipt import mint_v0
 
 
 def test_foundation_suite_runs_from_bundled_zip():
@@ -15,8 +15,9 @@ def test_foundation_suite_runs_from_bundled_zip():
     assert result["failed"] == 0
 
 
-def test_engine_minted_receipt_passes_foundation_reference_verifier():
-    receipt = mint(
+def test_historical_v0_receipt_passes_foundation_reference_verifier():
+    """The bundled Foundation pack is deliberately frozen at receipt v0."""
+    receipt = mint_v0(
         {
             "who": "tester",
             "did": "registered",
@@ -36,8 +37,8 @@ def test_engine_minted_receipt_passes_foundation_reference_verifier():
     assert result["kind"] == "receipt"
 
 
-def test_tampered_receipt_fails_foundation_reference_verifier():
-    receipt = mint({"who": "tester"})
+def test_tampered_v0_receipt_fails_foundation_reference_verifier():
+    receipt = mint_v0({"who": "tester"})
     receipt["who"] = "tampered"
 
     result = verify_engine_receipt(receipt)
@@ -46,9 +47,9 @@ def test_tampered_receipt_fails_foundation_reference_verifier():
     assert "FAILED" in result["stdout"]
 
 
-def test_foundation_cli_verifies_engine_receipt(tmp_path):
+def test_foundation_cli_verifies_historical_v0_receipt(tmp_path):
     receipt_path = tmp_path / "receipt.json"
-    receipt_path.write_text(json.dumps(mint({"who": "tester"})))
+    receipt_path.write_text(json.dumps(mint_v0({"who": "tester"})))
     proc = subprocess.run(
         [sys.executable, "-m", "lab.cli", "foundation", "verify-receipt", str(receipt_path)],
         cwd=os.getcwd(),
