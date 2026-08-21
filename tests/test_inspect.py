@@ -39,7 +39,7 @@ def test_inspect_returns_metadata_slots_and_validation():
     assert out["content_hash"] == receipt["id"]
     assert out["metadata"]["tuple_hash"] == receipt["hashes"]["tuple_hash"]
     assert out["metadata"]["content_hash"] == receipt["id"]
-    assert out["metadata"]["receipt_version"] == "logline.receipt.v0"
+    assert out["metadata"]["receipt_version"] == "logline.receipt.v1"
     assert out["metadata"]["algorithm"] == "sha256"
     assert out["metadata"]["inserted_at"]
     assert out["slots"] == {slot: receipt.get(slot, "") for slot in SLOTS}
@@ -95,7 +95,6 @@ def test_inspect_reports_citation_unvalidatable_when_cited_absent():
     db = connect(":memory:")
     cited = append(db, _base(this="cited"))
     citing = cite(_base(did="cites"), cited, "content_hash")
-    # Insert ONLY the citing receipt into a fresh ledger; cited is absent.
     db2 = connect(":memory:")
     append_receipt(db2, citing)
     out = inspect_hash(db2, citing["id"])
@@ -119,11 +118,8 @@ def test_inspect_surfaces_bundle_citation_leaves():
 # ----------------------------------------------------------------- TAMPER DETECTION
 
 def test_inspect_reports_validation_failure_for_tampered_receipt():
-    """Insert a receipt then mutate its stored act body in place (bypassing the append-only
-    triggers via a raw row write into a fresh table) and prove inspect flags it invalid."""
     db = connect(":memory:")
     receipt = append(db, _base())
-    # Build a tampered act JSON: flip a slot without re-hashing.
     tampered = dict(receipt)
     tampered["status"] = "claimed_x"
     raw = sqlite3.connect(":memory:")
@@ -158,7 +154,6 @@ def test_path_inspection_uses_a_readonly_connection(tmp_path):
 
 
 def test_readonly_connection_physically_rejects_writes(tmp_path):
-    """The structural guarantee: the inspection connection cannot mutate the ledger."""
     from lab.inspect import _readonly_connect
 
     path = tmp_path / "lab.sqlite"
@@ -177,8 +172,6 @@ def test_readonly_connection_physically_rejects_writes(tmp_path):
 
 
 def test_inspect_surface_exposes_no_mutation_verbs():
-    """The module's public surface is read-only by construction: it offers no register,
-    dispatch, close, append, or queue verb."""
     import lab.inspect as inspect_mod
 
     public = {name for name in dir(inspect_mod) if not name.startswith("_")}
