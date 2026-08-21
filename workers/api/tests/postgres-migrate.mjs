@@ -10,10 +10,11 @@ const client = {
 };
 
 await migrateReceiptV1(client);
-assert.equal(calls.length, 3);
+assert.equal(calls.length, 4);
 const identitySql = calls[0];
 const registrySql = calls[1];
 const custodySql = calls[2];
+const executorSql = calls[3];
 
 assert.match(identitySql, /drop constraint if exists runtime_queue_source_hash_fkey/i);
 assert.match(identitySql, /drop constraint if exists process_contracts_registered_hash_fkey/i);
@@ -35,5 +36,10 @@ assert.match(custodySql, /lease_until/i);
 assert.match(custodySql, /logline_acts_parent_tuple_idx/i);
 assert.match(custodySql, /create unique index if not exists logline_acts_process_parent_unique/i);
 assert.match(custodySql, /envelope'->>'process'.*envelope'->>'parent'/is);
+assert.match(executorSql, /add column if not exists attempts/i);
+assert.match(executorSql, /add column if not exists last_error/i);
+assert.match(executorSql, /add column if not exists result_tuple/i);
+assert.match(executorSql, /runtime_custody_queue_claim_idx/i);
+assert.match(executorSql, /responsible,status,lease_until,created_at,queue_id/i);
 
-console.log("postgres migration: receipt + registry + custody + atomic no-fork guard pinned");
+console.log("postgres migration: receipt + registry + custody + no-fork + executor leases pinned");
