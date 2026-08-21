@@ -1,0 +1,74 @@
+{
+  "vector": "off-graph-custody",
+  "expect": "invalid",
+  "tests": [
+    "law 15"
+  ],
+  "reason": "The observed custody moved to a node the workflow never declared. Off-graph movement is refused; process instances advance only through the selected if_ok/if_doubt/if_not branch.",
+  "workflow": {
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "start": "card-table",
+    "nodes": {
+      "card-table": {
+        "activity": "draft candidate",
+        "responsible": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "accepts_template": "2222222222222222222222222222222222222222222222222222222222222222",
+        "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+        "qualifier": "0",
+        "runtime": "0",
+        "if_ok": "gate-intake",
+        "if_doubt": "attention",
+        "if_not": "refused"
+      },
+      "gate-intake": {
+        "activity": "intake accepted candidate",
+        "responsible": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "if_ok": "stop",
+        "if_doubt": "attention",
+        "if_not": "refused"
+      },
+      "attention": {
+        "activity": "raise attention",
+        "responsible": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "if_ok": "stop",
+        "if_doubt": "stop",
+        "if_not": "stop"
+      },
+      "refused": {
+        "activity": "refuse candidate",
+        "responsible": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "if_ok": "stop",
+        "if_doubt": "stop",
+        "if_not": "stop"
+      }
+    }
+  },
+  "custody": {
+    "node": "open-road",
+    "responsible": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "act": {
+    "who": "dan",
+    "did": "played",
+    "this": "a card whose custody moved outside the declared process graph",
+    "when": "2026-06-15T03:00:00Z",
+    "confirmed_by": "pack-vector",
+    "if_ok": "proceed",
+    "if_doubt": "open a ghost",
+    "if_not": "refuse",
+    "status": "candidate",
+    "pack": "1111111111111111111111111111111111111111111111111111111111111111",
+    "template": "2222222222222222222222222222222222222222222222222222222222222222",
+    "workflow": "3333333333333333333333333333333333333333333333333333333333333333",
+    "policy": "4444444444444444444444444444444444444444444444444444444444444444",
+    "qualifier": "0",
+    "runtime": "0",
+    "run": "0"
+  },
+  "routing": {
+    "node": "card-table",
+    "outcome": "ok",
+    "actual_next_node": "open-road",
+    "actual_next_responsible": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  }
+}
