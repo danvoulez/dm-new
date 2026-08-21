@@ -110,19 +110,29 @@ export async function loadLedgerProcessTypes(client: PgClient): Promise<Map<stri
   const result = await client.query<{
     process_id: string;
     registered_hash: string;
-    definition: ProcessContract;
+    definition?: ProcessContract;
+    contract?: ProcessContract;
     status: string;
+    title?: string;
   }>(
     `SELECT process_id,registered_hash,definition,status
      FROM public.current_process_types
      ORDER BY process_id`,
   );
-  return new Map(result.rows.map((row) => [row.process_id, {
-    ...row.definition,
-    process_id: row.process_id,
-    status: row.status || row.definition.status || "active",
-    registered_hash: row.registered_hash,
-  }]));
+  const entries: Array<[string, ProcessContract]> = [];
+  for (const row of result.rows) {
+    // `contract`/`title` support legacy test doubles only; real projection rows use definition.
+    const definition = row.definition ?? row.contract;
+    if (!definition || typeof definition !== "object") continue;
+    entries.push([row.process_id, {
+      ...definition,
+      process_id: row.process_id,
+      title: row.title || definition.title,
+      status: row.status || definition.status || "active",
+      registered_hash: row.registered_hash ?? definition.registered_hash ?? null,
+    }]);
+  }
+  return new Map(entries);
 }
 
 export async function listCurrentVocabulary(client: PgClient): Promise<VocabularyTerm[]> {
