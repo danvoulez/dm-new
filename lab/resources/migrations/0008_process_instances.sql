@@ -10,6 +10,14 @@ create index if not exists logline_acts_parent_tuple_idx
 create index if not exists logline_acts_process_type_idx
   on public.logline_acts ((act->>'process_type'));
 
+-- A process is a single custody chain. Pre-append verification checks the current head;
+-- this unique index is the atomic race-condition backstop if two dispatches verify the
+-- same head concurrently.
+create unique index if not exists logline_acts_process_parent_unique
+  on public.logline_acts ((act->'envelope'->>'process'), (act->'envelope'->>'parent'))
+  where act->'envelope'->>'process' is not null
+    and act->'envelope'->>'parent' is not null;
+
 create table if not exists public.runtime_custody_queue (
   queue_id text primary key,
   process_instance text not null check (process_instance ~ '^[0-9a-f]{64}$'),
