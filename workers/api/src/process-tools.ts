@@ -3,8 +3,8 @@ import type { PgClient } from "./db";
 import type { ActFields } from "./receipt";
 
 const HASH = /^[0-9a-f]{64}$/;
-const SLOTS: Slot[] = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"];
-const SLOT_SET = new Set<string>(SLOTS);
+export const LOG_LINE_SLOTS: Slot[] = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"];
+const SLOT_SET = new Set<string>(LOG_LINE_SLOTS);
 const RESERVED_FIELDS = new Set(["process_id", "contract_hash", "id", "hashes", "receipt_version", "json_canonicalization"]);
 const SEARCH_STOP_WORDS = new Set(["uma", "uns", "com", "para", "por", "sem", "sobre", "este", "esta", "isso", "que", "dos", "das"]);
 
@@ -30,6 +30,7 @@ export type ProcessContractForLLM = {
   registered_hash: string | null;
   citable: boolean;
   purpose: string;
+  /** Project/process conventions for model context; never kernel fill rules. */
   slot_rules: ProcessContract["slot_rules"];
   required_aux: string[];
   optional_aux: string[];
@@ -48,16 +49,9 @@ export type ProcessContractForLLM = {
 export type FormalizedActProposal = {
   process_id?: string;
   contract_hash?: string;
-  slots?: Partial<Record<Slot, unknown>> & Record<string, unknown>;
+  slots: Record<Slot, unknown> & Record<string, unknown>;
   fields?: Record<string, unknown>;
-  missing?: string[];
   citations?: string[];
-};
-
-export type ActSources = {
-  session: Partial<Record<Slot, unknown>>;
-  clock: Partial<Record<Slot, unknown>>;
-  evidence: Partial<Record<Slot, unknown>>;
 };
 
 function normalize(value: string): string {
@@ -119,10 +113,6 @@ export async function readProcessContract(client: PgClient, processId: string): 
   };
 }
 
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
 function proposalParts(proposal: FormalizedActProposal): {
   slots: Record<string, unknown>;
   fields: Record<string, unknown>;
@@ -131,47 +121,43 @@ function proposalParts(proposal: FormalizedActProposal): {
   const slots = proposal.slots && typeof proposal.slots === "object" && !Array.isArray(proposal.slots) ? proposal.slots : {};
   const fields = proposal.fields && typeof proposal.fields === "object" && !Array.isArray(proposal.fields) ? proposal.fields : {};
   const citations = Array.isArray(proposal.citations) ? proposal.citations.filter((item): item is string => typeof item === "string") : [];
+
+  for (const key of Object.keys(slots)) {
+    if (!SLOT_SET.has(key)) throw new ProcessToolError("slot_unknown", `unknown LogLine slot ${key}`, { slot: key });
+  }
+  for (const slot of LOG_LINE_SLOTS) {
+    if (!(slot in slots)) throw new ProcessToolError("slot_missing", `LLM proposal must contain slot ${slot}`, { slot });
+    if (typeof slots[slot] !== "string") throw new ProcessToolError("slot_type", `LogLine slot ${slot} must be a string`, { slot });
+  }
   for (const key of Object.keys(fields)) {
     if (SLOT_SET.has(key) || RESERVED_FIELDS.has(key)) {
-      throw new ProcessToolError("field_reserved", `field ${key} belongs to the LogLine envelope`, { field: key });
+      throw new ProcessToolError("field_reserved", `field ${key} belongs to the LogLine/envelope boundary`, { field: key });
     }
   }
   return { slots, fields, citations };
 }
 
-function pureRegistration(proposal: FormalizedActProposal, sources: ActSources): ActFields {
-  const { slots, fields, citations } = proposalParts(proposal);
-  for (const slot of Object.keys(slots)) {
-    if (slot !== "did" && slot !== "this") {
-      throw new ProcessToolError("slot_source_violation", `slot ${slot} is not supplied by the LLM`, { slot, expected_source: slot === "when" ? "clock" : "session_or_system" });
-    }
-  }
-  const act: ActFields = {
-    who: stringValue(sources.session.who),
-    did: stringValue(slots.did),
-    this: stringValue(slots.this),
-    when: stringValue(sources.clock.when),
-    confirmed_by: stringValue(sources.session.confirmed_by),
-    if_ok: "registered.inert",
-    if_doubt: "attention-raise.v1",
-    if_not: "stop",
-    status: "registered",
-    ...fields,
-  };
-  if (citations.length) act.citations = [...new Set(citations)];
-  return act;
-}
-
+/**
+ * Losslessly assemble a complete LLM-authored proposal for the register boundary.
+ *
+ * No semantic slot is synthesized here. Process contract material is context and an
+ * objective citation anchor only; it may not fill, coerce, or reject tuple semantics.
+ */
 export function assembleAct(
   proposal: FormalizedActProposal,
-  sources: ActSources,
   contract?: ProcessContract,
 ): ActFields {
+  const { slots, fields, citations } = proposalParts(proposal);
   const processId = String(proposal.process_id ?? "").trim();
+  const act: ActFields = Object.fromEntries(LOG_LINE_SLOTS.map((slot) => [slot, slots[slot]]));
+  Object.assign(act, fields);
+
   if (!processId) {
     if (proposal.contract_hash) throw new ProcessToolError("contract_without_process", "contract_hash requires process_id");
-    return pureRegistration(proposal, sources);
+    if (citations.length) act.citations = [...new Set(citations)];
+    return act;
   }
+
   if (!contract || contract.process_id !== processId) {
     throw new ProcessToolError("process_not_found", `process contract not loaded: ${processId}`, { process_id: processId });
   }
@@ -182,37 +168,16 @@ export function assembleAct(
   const suppliedHash = String(proposal.contract_hash ?? "");
   if (suppliedHash !== registeredHash) {
     throw new ProcessToolError("contract_hash_mismatch", "the cited contract is not the registered contract", {
-      process_id: processId, expected: registeredHash, observed: suppliedHash,
+      process_id: processId,
+      expected: registeredHash,
+      observed: suppliedHash,
     });
   }
-  const { slots, fields, citations } = proposalParts(proposal);
   if (!citations.includes(registeredHash)) {
     throw new ProcessToolError("contract_citation_missing", "the registered contract hash must be cited", { process_id: processId });
   }
 
-  const allowedAux = new Set([...(contract.must_include ?? []), ...(contract.optional_aux ?? [])]);
-  for (const key of Object.keys(fields)) {
-    if (!allowedAux.has(key)) throw new ProcessToolError("aux_not_declared", `field ${key} is not declared by ${processId}`, { field: key, process_id: processId });
-  }
-
-  const act: ActFields = {};
-  for (const slot of SLOTS) {
-    const rule = contract.slot_rules?.[slot];
-    if (!rule) throw new ProcessToolError("activation_rules_not_explicit", `slot rule missing: ${slot}`, { slot, process_id: processId });
-    if (slot in slots && rule.source !== "llm") {
-      throw new ProcessToolError("slot_source_violation", `slot ${slot} must come from ${rule.source}`, { slot, expected_source: rule.source });
-    }
-    if (rule.source === "llm") act[slot] = stringValue(slots[slot]);
-    else if (rule.source === "session") act[slot] = stringValue(sources.session[slot]);
-    else if (rule.source === "clock") act[slot] = stringValue(sources.clock[slot]);
-    else if (rule.source === "evidence") act[slot] = stringValue(sources.evidence[slot]);
-    else {
-      const literal = rule.values?.[0];
-      if (!literal) throw new ProcessToolError("contract_literal_missing", `contract slot ${slot} has no literal value`, { slot, process_id: processId });
-      act[slot] = literal;
-    }
-  }
-  Object.assign(act, fields, {
+  Object.assign(act, {
     process_id: processId,
     contract_hash: registeredHash,
     citations: [...new Set(citations)],
