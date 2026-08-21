@@ -27,7 +27,8 @@ export class RegisterActivationError extends Error {
 }
 
 export type RegisterFlowDeps = {
-  verifyProposal: typeof verifyProposal;
+  /** Injectable for tests; production defaults to the kernel verifier. */
+  verifyProposal?: typeof verifyProposal;
   append: (client: PgClient, fields: ActFields) => Promise<Receipt>;
   loadCatalog: (client: PgClient) => Promise<Map<string, ProcessContract>>;
   evaluateReceipt: typeof evaluate;
@@ -48,7 +49,7 @@ export async function registerFlow(
   deps: RegisterFlowDeps,
   context: ProposalVerificationContext = {},
 ): Promise<RegisterOutcome> {
-  const verification = await deps.verifyProposal(client, fields, context);
+  const verification = await (deps.verifyProposal ?? verifyProposal)(client, fields, context);
   const receipt = await deps.append(client, fields);
   try {
     const catalog = await deps.loadCatalog(client);
