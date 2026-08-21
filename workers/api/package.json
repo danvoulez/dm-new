@@ -19,7 +19,7 @@
     "test:conversation-ingress": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/conversation-ingress-e2e.mjs",
     "test:model-catalog": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/model-catalog.mjs",
     "test:contract-registration": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/contract-registration.mjs",
-    "test:readiness": "node --disable-warning=ExperimentalWarning --experimental-strip-types tests/contracts-readiness.mjs",
+    "test:readiness": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/contracts-readiness.mjs",
     "test:evaluator-parity": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/evaluator-parity.mjs",
     "test:activation-semantics": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/activation-semantics.mjs",
     "test:receiver-selection": "node --disable-warning=ExperimentalWarning --experimental-strip-types --experimental-loader ./tests/ts-extension-loader.mjs tests/receiver-selection.mjs",
