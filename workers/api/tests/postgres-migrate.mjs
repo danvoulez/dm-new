@@ -33,5 +33,7 @@ assert.match(custodySql, /source_tuple/i);
 assert.match(custodySql, /responsible/i);
 assert.match(custodySql, /lease_until/i);
 assert.match(custodySql, /logline_acts_parent_tuple_idx/i);
+assert.match(custodySql, /create unique index if not exists logline_acts_process_parent_unique/i);
+assert.match(custodySql, /envelope'->>'process'.*envelope'->>'parent'/is);
 
-console.log("postgres migration: receipt + registry + process custody runtime pinned");
+console.log("postgres migration: receipt + registry + custody + atomic no-fork guard pinned");
