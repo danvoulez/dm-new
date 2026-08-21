@@ -1,11 +1,11 @@
 import { humanProcessTitle, loadContracts, toProcessTypeView, type ProcessContract, type Slot } from "./contracts.ts";
 import type { PgClient } from "./db";
-import type { ActFields } from "./receipt";
+import type { ActFields, Envelope } from "./receipt";
 
 const HASH = /^[0-9a-f]{64}$/;
 export const LOG_LINE_SLOTS: Slot[] = ["who", "did", "this", "when", "confirmed_by", "if_ok", "if_doubt", "if_not", "status"];
 const SLOT_SET = new Set<string>(LOG_LINE_SLOTS);
-const RESERVED_FIELDS = new Set(["process_id", "contract_hash", "id", "hashes", "receipt_version", "json_canonicalization"]);
+const RESERVED_FIELDS = new Set(["process_id", "contract_hash", "id", "hashes", "receipt_version", "json_canonicalization", "envelope"]);
 const SEARCH_STOP_WORDS = new Set(["uma", "uns", "com", "para", "por", "sem", "sobre", "este", "esta", "isso", "que", "dos", "das"]);
 
 export class ProcessToolError extends Error {
@@ -51,6 +51,7 @@ export type FormalizedActProposal = {
   contract_hash?: string;
   slots: Record<Slot, unknown> & Record<string, unknown>;
   fields?: Record<string, unknown>;
+  envelope: Envelope;
   citations?: string[];
 };
 
@@ -116,6 +117,7 @@ export async function readProcessContract(client: PgClient, processId: string): 
 function proposalParts(proposal: FormalizedActProposal): {
   slots: Record<string, unknown>;
   fields: Record<string, unknown>;
+  envelope: Envelope;
   citations: string[];
 } {
   const slots: Record<string, unknown> = proposal.slots && typeof proposal.slots === "object" && !Array.isArray(proposal.slots)
@@ -123,6 +125,9 @@ function proposalParts(proposal: FormalizedActProposal): {
     : {};
   const fields: Record<string, unknown> = proposal.fields && typeof proposal.fields === "object" && !Array.isArray(proposal.fields)
     ? proposal.fields
+    : {};
+  const envelope: Envelope = proposal.envelope && typeof proposal.envelope === "object" && !Array.isArray(proposal.envelope)
+    ? proposal.envelope
     : {};
   const citations = Array.isArray(proposal.citations) ? proposal.citations.filter((item): item is string => typeof item === "string") : [];
 
@@ -133,28 +138,31 @@ function proposalParts(proposal: FormalizedActProposal): {
     if (!(slot in slots)) throw new ProcessToolError("slot_missing", `LLM proposal must contain slot ${slot}`, { slot });
     if (typeof slots[slot] !== "string") throw new ProcessToolError("slot_type", `LogLine slot ${slot} must be a string`, { slot });
   }
+  if (!proposal.envelope || typeof proposal.envelope !== "object" || Array.isArray(proposal.envelope)) {
+    throw new ProcessToolError("envelope_missing", "LLM proposal must explicitly contain an envelope object");
+  }
   for (const key of Object.keys(fields)) {
     if (SLOT_SET.has(key) || RESERVED_FIELDS.has(key)) {
       throw new ProcessToolError("field_reserved", `field ${key} belongs to the LogLine/envelope boundary`, { field: key });
     }
   }
-  return { slots, fields, citations };
+  return { slots, fields, envelope, citations };
 }
 
 /**
  * Losslessly assemble a complete LLM-authored proposal for the register boundary.
  *
- * No semantic slot is synthesized here. Process contract material is context and an
- * objective citation anchor only; it may not fill, coerce, or reject tuple semantics.
+ * No semantic slot or envelope value is synthesized here. Process contract material
+ * is context and an objective citation anchor only; it may not fill/coerce semantics.
  */
 export function assembleAct(
   proposal: FormalizedActProposal,
   contract?: ProcessContract,
 ): ActFields {
-  const { slots, fields, citations } = proposalParts(proposal);
+  const { slots, fields, envelope, citations } = proposalParts(proposal);
   const processId = String(proposal.process_id ?? "").trim();
   const act: ActFields = Object.fromEntries(LOG_LINE_SLOTS.map((slot) => [slot, slots[slot]]));
-  Object.assign(act, fields);
+  Object.assign(act, fields, { envelope: { ...envelope } });
 
   if (!processId) {
     if (proposal.contract_hash) throw new ProcessToolError("contract_without_process", "contract_hash requires process_id");
